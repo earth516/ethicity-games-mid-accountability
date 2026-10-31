@@ -126,7 +126,7 @@
   }
   /* ---------- 배경음악: 브라우저가 직접 연주하는 8비트 음악 3곡 (음원 파일 없음 · 기본 꺼짐) ----------
      lab: 평소(제목~배포자) · field: 긴장(사용자) · reflect: 차분(책임 맵~완료) */
-  const Music = (() => {
+  const Synth = (() => {
     const VOL = 0.12;
     const TR = {
       lab: { bpm: 100, parts: [
@@ -207,6 +207,38 @@
       get playing() { return playing; }
     };
   })();
+  /* 배경음악 파일(audio/*.mp3, AI로 만든 음악)을 우선 쓰고, 못 불러오면 위의 8비트 음악(Synth)으로 대신합니다 */
+  const Music = (() => {
+    const VOL = 0.35, FILES = { lab: 'audio/bgm-lab.mp3', field: 'audio/bgm-field.mp3', reflect: 'audio/bgm-reflect.mp3' };
+    const els = {}, broken = {};
+    let cur = 'lab', playing = false, active = null, usingSynth = false;
+    const el = name => {
+      if (els[name]) return els[name];
+      const a = new Audio(); a.src = FILES[name]; a.loop = true; a.preload = 'auto'; a.volume = 0;
+      a.addEventListener('error', () => { broken[name] = true; if (playing && cur === name) start(name); });
+      return (els[name] = a);
+    };
+    const fade = (a, to, ms, done) => {
+      clearInterval(a._f); const from = a.volume, t0 = performance.now();
+      a._f = setInterval(() => { const k = Math.min(1, (performance.now() - t0) / ms); a.volume = from + (to - from) * k; if (k >= 1) { clearInterval(a._f); done && done(); } }, 40);
+    };
+    const stopFile = () => { if (!active) return; const a = active; active = null; fade(a, 0, 500, () => a.pause()); };
+    const start = name => {
+      if (broken[name]) { stopFile(); usingSynth = true; Synth.set(name); Synth.on(); return; }
+      if (usingSynth) { Synth.off(); usingSynth = false; }
+      const a = el(name); if (active === a) return;
+      stopFile(); active = a;
+      const p = a.play(); if (p && p.catch) p.catch(() => { broken[name] = true; if (active === a) { active = null; start(name); } });
+      fade(a, VOL, 900);
+    };
+    document.addEventListener('visibilitychange', () => { if (!playing || !active) return; document.hidden ? active.pause() : active.play().catch(() => {}); });
+    return {
+      on() { playing = true; start(cur); return true; },
+      off() { playing = false; stopFile(); if (usingSynth) { Synth.off(); usingSynth = false; } },
+      set(name) { if (name === cur) return; cur = name; if (playing) start(name); else Synth.set(name); },
+      get playing() { return playing; }
+    };
+  })();
   const musicFor = n => n === 5 ? 'field' : n >= 6 ? 'reflect' : 'lab';
 
   function tools() {
@@ -223,7 +255,7 @@
     m.onclick = () => { settings.calm = !settings.calm; sync(); toast(settings.calm ? '움직임을 줄였어요' : '움직임 줄이기를 껐어요'); };
     mu.onclick = () => {
       settings.music = !settings.music; sync();
-      if (settings.music) { Music.set(musicFor(S.scene)); if (!Music.on()) { settings.music = false; sync(); toast('이 브라우저에서는 배경음악을 틀 수 없어요'); return; } toast('배경음악을 켰어요 · 교실에서는 이어폰을 써 주세요'); }
+      if (settings.music) { Music.set(musicFor(S.scene)); if (!Music.on()) { settings.music = false; sync(); toast('이 브라우저에서는 배경음악을 틀 수 없어요'); return; } toast('배경음악을 켰어요 (AI로 만든 음악) · 교실에서는 이어폰을 써 주세요'); }
       else { Music.off(); toast('배경음악을 껐어요'); }
     };
     /* 지난번에 켜 두었다면, 브라우저 규칙상 첫 터치 때 다시 켭니다 */

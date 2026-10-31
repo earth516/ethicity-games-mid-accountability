@@ -11,7 +11,7 @@
 ## 파일
 
 ```
-accountability/
+(저장소 루트)
 ├── index.html      실행 진입점
 ├── game.css        게임 전용 스타일 (.game-accountability 아래에만 적용)
 ├── game.js         게임 로직 (IIFE)
@@ -45,8 +45,8 @@ accountability/
 
 ## 공통 팩 연결
 
-- COMMON_BASE: `../shared/ethicity-elementary-common-v1`
-- 저장소 구조: repo 루트에 `/shared/ethicity-elementary-common-v1/`과 `/accountability/`가 형제 폴더로 있어야 합니다.
+- COMMON_BASE: `index.html`이 자동으로 찾음 — `../shared/…`(팀 표준: 통합 저장소에서 `accountability/`와 형제 폴더)를 먼저 보고, 없으면 `./shared/…`(이 저장소처럼 게임 파일과 `shared/`가 루트에 함께 있는 구조)를 봅니다.
+- 이 저장소 구조: 루트에 `index.html`·`game.js`·`game.css`·`images/`·`docs/`와 `shared/ethicity-elementary-common-v1/`가 함께 있습니다. 공통 팩을 못 찾으면 화면에 확인한 위치를 안내합니다.
 - 불러오는 순서: `runtime/common.css` → `game.css` → `runtime/manifest.js` → `runtime/common.js` → `game.js`
 - `EthicityAssets.load`로 자산을 읽고 `drawBackground`, `drawCharacter`, `drawPortrait`, `drawIcon`, `drawEffect`, `setSound`, `playSound`를 사용합니다.
 - 공통 팩 파일은 수정하지 않았습니다.
@@ -90,9 +90,18 @@ result에는 닉네임이나 학생이 쓴 글을 넣지 않습니다.
 
 START(제목·학번·이름·닉네임) → INTRO(안내 로봇, 오늘의 순서) → GAME(장면 2~5) → RESULT(책임 연결선 맵, 엔딩 E1~E5) → 사례 탐구·생각 카드 → COMPLETE(우리가 발견한 것 / 기억할 한 문장 / 다음 탐험)
 
+## 배경음악
+
+음원 파일 없이 브라우저(Web Audio)가 직접 연주하는 8비트 음악 3곡입니다. 저작권 문제가 없고 오프라인에서도 나옵니다.
+
+- 평소(제목~배포자 장면) · 긴장(사용자 장면) · 차분(책임 맵~완료). 장면이 바뀌면 부드럽게 넘어갑니다.
+- 기본 꺼짐. 상단 ♪ 버튼으로 켜고 끕니다. 설정은 그 기기에 기억되며, 다음에 열면 첫 터치 때 다시 켜집니다(브라우저 자동 재생 규칙).
+- 교실에서 여러 기기가 함께 쓰므로 이어폰 사용을 권장합니다. 화면을 다른 탭으로 옮기면 잠시 멈춥니다.
+- 곡은 `game.js`의 `Music` 안 `TR`에 음표 문자열로 들어 있습니다.
+
 ## 교사용 데모 (`?demo`)
 
-주소 끝에 `?demo`를 붙여 열면(예: `.../accountability/index.html?demo`) 화면 위에 데모 막대가 나타납니다.
+주소 끝에 `?demo`를 붙여 열면(예: `https://earth516.github.io/ethicity-games-mid-accountability/?demo`) 화면 위에 데모 막대가 나타납니다.
 
 - 장면 버튼(제목, 1~9)으로 어느 장면이든 바로 이동합니다.
 - [앞 장면 선택]에서 E1~E5 중 하나를 고르면, 이동한 장면 앞의 선택이 그 엔딩으로 가는 값으로 채워집니다. 예를 들어 E4를 고르고 [6 책임 맵]을 누르면 기록이 꺼진 상태의 맵을 바로 볼 수 있습니다.
@@ -148,7 +157,7 @@ START(제목·학번·이름·닉네임) → INTRO(안내 로봇, 오늘의 순�
 - 대화: 대사가 한 글자씩 나오고 말하는 동안 얼굴이 살짝 움직임. 버튼을 한 번 누르면 바로 전체 표시
 - 화면: 패널 등장(0.3초), 선택 시 톡 튀는 반응, 정확도 막대 채우기, 책임 맵 기록선 그리기, 엔딩 도장, 촬영 플래시, 버섯 살랑임
 - 움직임 줄이기를 켜면 모두 정지 화면으로 바뀜
-- 효과음은 기본 꺼짐, 버튼을 눌러야 켜짐. BGM 없음
+- 효과음과 배경음악은 기본 꺼짐, 버튼을 눌러야 켜짐
 
 ## 알려진 제한
 

@@ -34,7 +34,7 @@
   const ROLE_KEYS = ['data', 'developer', 'deployer', 'user'];
 
   let A = null;
-  const settings = Object.assign({ sound: false, calm: false }, store.get('settings', {}));
+  const settings = Object.assign({ sound: false, calm: false, music: false }, store.get('settings', {}));
   const reduced = () => settings.calm || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const snd = id => { if (A && settings.sound) A.playSound(id); };
 
@@ -124,10 +124,96 @@
     const pl = $('#ga-player'); pl.hidden = !S.player; pl.textContent = S.player ? '탐험가 · ' + nick() : '';
     $('#ga-pips').innerHTML = S.scene ? [1, 2, 3, 4, 5, 6, 7, 8].map(i => `<span class="ga-pip ${i < S.scene ? 'done' : ''} ${i === S.scene ? 'now' : ''}" title="${i < 8 ? '장면 ' + i : '사례 탐구'}">${i < 8 ? i : '+'}</span>`).join('') : '';
   }
+  /* ---------- 배경음악: 브라우저가 직접 연주하는 8비트 음악 3곡 (음원 파일 없음 · 기본 꺼짐) ----------
+     lab: 평소(제목~배포자) · field: 긴장(사용자) · reflect: 차분(책임 맵~완료) */
+  const Music = (() => {
+    const VOL = 0.12;
+    const TR = {
+      lab: { bpm: 100, parts: [
+        { w: 'triangle', g: .55, n: 'C3 _ _ _ G2 _ _ _ | G2 _ _ _ D3 _ _ _ | A2 _ _ _ E3 _ _ _ | F2 _ _ _ C3 _ _ _ | C3 _ _ _ G2 _ _ _ | G2 _ _ _ D3 _ _ _ | F2 _ _ _ C3 _ _ _ | G2 _ _ _ D3 _ _ _' },
+        { w: 'square', g: .08, n: 'C5 E5 G5 E5 C5 E5 G5 E5 | B4 D5 G5 D5 B4 D5 G5 D5 | A4 C5 E5 C5 A4 C5 E5 C5 | A4 C5 F5 C5 A4 C5 F5 C5 | C5 E5 G5 E5 C5 E5 G5 E5 | B4 D5 G5 D5 B4 D5 G5 D5 | A4 C5 F5 C5 A4 C5 F5 C5 | B4 D5 G5 D5 B4 D5 G5 D5' },
+        { w: 'square', g: .13, n: '- - - - - - - - | - - - - - - - - | - - - - - - - - | - - - - - - - - | E5 _ D5 C5 G4 _ C5 _ | D5 _ B4 D5 G5 _ D5 _ | C5 _ A4 _ F4 A4 C5 _ | D5 _ _ _ B4 _ _ _' }
+      ] },
+      field: { bpm: 112, hat: [0, 1, 0, 1, 0, 1, 0, 1], parts: [
+        { w: 'triangle', g: .6, n: 'A2 A2 A2 A2 A2 A2 A2 A2 | A2 A2 A2 A2 A2 A2 A2 A2 | F2 F2 F2 F2 F2 F2 F2 F2 | E2 E2 E2 E2 E2 E2 E2 E2' },
+        { w: 'square', g: .06, n: 'A4 E5 A4 E5 A4 E5 A4 E5 | A4 E5 A4 E5 C5 E5 A4 E5 | A4 F5 A4 F5 A4 F5 C5 F5 | G#4 E5 G#4 E5 B4 E5 G#4 E5' },
+        { w: 'square', g: .12, n: '- - - - E5 _ _ _ | D5 _ C5 _ B4 _ _ _ | - - - - C5 _ _ _ | B4 _ _ _ G#4 _ _ _' }
+      ] },
+      reflect: { bpm: 78, parts: [
+        { w: 'triangle', g: .5, n: 'F2 _ _ _ C3 _ _ _ | C2 _ _ _ G2 _ _ _ | D2 _ _ _ A2 _ _ _ | A#1 _ _ _ F2 _ _ _ | F2 _ _ _ C3 _ _ _ | C2 _ _ _ G2 _ _ _ | A#1 _ _ _ F2 _ _ _ | C2 _ _ _ G2 _ _ _' },
+        { w: 'sine', g: .14, n: 'F4 _ A4 _ C5 _ A4 _ | E4 _ G4 _ C5 _ G4 _ | D4 _ F4 _ A4 _ F4 _ | D4 _ F4 _ A#4 _ F4 _ | F4 _ A4 _ C5 _ A4 _ | E4 _ G4 _ C5 _ G4 _ | D4 _ F4 _ A#4 _ F4 _ | E4 _ G4 _ C5 _ G4 _' },
+        { w: 'triangle', g: .42, n: 'C5 _ _ _ A4 _ _ _ | G4 _ _ _ E4 _ _ _ | F4 _ A4 _ D5 _ _ _ | D5 _ C5 _ A#4 _ _ _ | A4 _ _ _ C5 _ _ _ | E5 _ _ _ G4 _ _ _ | F4 _ D4 _ F4 _ A#4 _ | C5 _ _ _ _ _ _ _' }
+      ] }
+    };
+    const NOTE = { C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11 };
+    const midi = t => { const m = /^([A-G]#?)(\d)$/.exec(t); return m ? 12 * (+m[2] + 1) + NOTE[m[1]] : null; };
+    Object.values(TR).forEach(T => T.parts.forEach(p => {
+      const tok = p.n.split(/\s+/).filter(t => t && t !== '|'); p.len = tok.length; p.at = {}; let last = null;
+      tok.forEach((t, i) => {
+        if (t === '_') { if (last) last.len++; return; }
+        if (t === '-') { last = null; return; }
+        last = { m: midi(t), len: 1 }; (p.at[i] = p.at[i] || []).push(last);
+      });
+    }));
+    let ctx = null, master = null, noise = null, cur = 'lab', step = 0, next = 0, timer = null, playing = false;
+    const play = (p, m, t, d) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = p.w; o.frequency.value = 440 * 2 ** ((m - 69) / 12);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(p.g, t + .015);
+      g.gain.setTargetAtTime(p.g * .55, t + .05, .12); g.gain.setTargetAtTime(0, t + Math.max(.05, d - .06), .04);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + d + .3);
+    };
+    const hat = t => {
+      const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noise; f.type = 'highpass'; f.frequency.value = 6000;
+      g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.001, t + .05);
+      s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t + .06);
+    };
+    const tick = () => {
+      const T = TR[cur], sd = 60 / T.bpm / 2;
+      while (next < ctx.currentTime + .2) {
+        T.parts.forEach(p => (p.at[step % p.len] || []).forEach(e => play(p, e.m, next, e.len * sd)));
+        if (T.hat && T.hat[step % T.hat.length]) hat(next);
+        next += sd; step++;
+      }
+    };
+    const ensure = () => {
+      if (ctx) return true;
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+      ctx = new AC(); master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+      noise = ctx.createBuffer(1, ctx.sampleRate * .1, ctx.sampleRate); const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      document.addEventListener('visibilitychange', () => { if (!playing) return; document.hidden ? ctx.suspend() : ctx.resume(); });
+      return true;
+    };
+    return {
+      on() {
+        if (!ensure()) return false;
+        ctx.resume(); playing = true; step = 0; next = ctx.currentTime + .08;
+        master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(VOL, ctx.currentTime, .3);
+        clearInterval(timer); timer = setInterval(tick, 25); return true;
+      },
+      off() {
+        if (!ctx) return; playing = false; clearInterval(timer);
+        master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(0, ctx.currentTime, .1);
+        setTimeout(() => { if (!playing) ctx.suspend(); }, 400);
+      },
+      set(name) {
+        if (name === cur) return; cur = name;
+        if (!playing) return;
+        master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setTargetAtTime(0, ctx.currentTime, .12);
+        clearInterval(timer);
+        setTimeout(() => { if (!playing) return; step = 0; next = ctx.currentTime + .05; master.gain.setTargetAtTime(VOL, ctx.currentTime, .4); timer = setInterval(tick, 25); }, 450);
+      },
+      get playing() { return playing; }
+    };
+  })();
+  const musicFor = n => n === 5 ? 'field' : n >= 6 ? 'reflect' : 'lab';
+
   function tools() {
-    const s = $('#ga-sound'), m = $('#ga-motion');
-    s.innerHTML = icon('volume'); m.innerHTML = icon('pause');
+    const s = $('#ga-sound'), m = $('#ga-motion'), mu = $('#ga-music');
+    s.innerHTML = icon('volume'); m.innerHTML = icon('pause'); mu.innerHTML = icon('music');
     const sync = () => {
+      mu.setAttribute('aria-pressed', settings.music); mu.setAttribute('aria-label', settings.music ? '배경음악 끄기' : '배경음악 켜기'); mu.title = mu.getAttribute('aria-label');
       s.setAttribute('aria-pressed', settings.sound); s.setAttribute('aria-label', settings.sound ? '효과음 끄기' : '효과음 켜기'); s.title = s.getAttribute('aria-label');
       m.setAttribute('aria-pressed', settings.calm); m.setAttribute('aria-label', settings.calm ? '움직임 줄이기 끄기' : '움직임 줄이기 켜기'); m.title = m.getAttribute('aria-label');
       root.classList.toggle('ga-calm', settings.calm);
@@ -135,12 +221,20 @@
     };
     s.onclick = () => { settings.sound = !settings.sound; sync(); snd('tap'); toast(settings.sound ? '효과음을 켰어요' : '효과음을 껐어요'); };
     m.onclick = () => { settings.calm = !settings.calm; sync(); toast(settings.calm ? '움직임을 줄였어요' : '움직임 줄이기를 껐어요'); };
+    mu.onclick = () => {
+      settings.music = !settings.music; sync();
+      if (settings.music) { Music.set(musicFor(S.scene)); if (!Music.on()) { settings.music = false; sync(); toast('이 브라우저에서는 배경음악을 틀 수 없어요'); return; } toast('배경음악을 켰어요 · 교실에서는 이어폰을 써 주세요'); }
+      else { Music.off(); toast('배경음악을 껐어요'); }
+    };
+    /* 지난번에 켜 두었다면, 브라우저 규칙상 첫 터치 때 다시 켭니다 */
+    if (settings.music) document.addEventListener('pointerdown', () => { if (settings.music && !Music.playing) { Music.set(musicFor(S.scene)); Music.on(); } }, { once: true });
     paint($('.ga-hud')); sync();
   }
   function go(n) {
     S.scene = n; hud(); window.scrollTo({ top: 0 });
     post({ type: 'ethicity:progress', gameId: GAME_ID, current: n, total: TOTAL });
     if (n >= 2 && n <= 8) store.set('progress', S); else if (n === 9) store.del('progress');
+    Music.set(musicFor(n));
     SCENES[n](); paint(stage); demoSync();
   }
   function who(key, mission, bg, actors, tag) {

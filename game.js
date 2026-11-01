@@ -42,7 +42,7 @@
     scene: 0, cart: [], labels: {}, labelSkipped: false,
     tabOpened: false, launch: null, th: 60, log: null,
     ad: null, warn: null, age: null, ate: null, userChoice: null,
-    shots: [], share: null, report: null, pushed: false,
+    shots: [], share: null, report: null, pushed: false, obs: {},
     my: { data: 25, developer: 25, deployer: 25, user: 25 }, reason: null, opened: false,
     caseId: null, refl: {}, player: null
   });
@@ -390,6 +390,8 @@
     const ed = appResult() === 'edible', P = [];
     P.push([nShots() >= 3, nShots() >= 3 ? '갓·주름·밑동을 모두 찍었다' : `사진을 ${nShots()}장만 찍었다`]);
     if (S.share) P.push([!(ed && S.share === 'plain'), { plain: '"식용이래!" 결과만 단톡방에 올렸다', care: '주의 문구와 함께 단톡방에 알렸다', none: '단톡방에 올리지 않았다' }[S.share]]);
+    const o = S.obs && S.obs.yellow;
+    if (o && ed && !o.match.includes('egg')) P.push([!S.ate, S.ate ? '내 관찰은 앱과 달랐지만 앱 결과를 믿었다' : '내 관찰과 앱 결과가 다른 것을 보고 멈췄다']);
     if (S.report) P.push([S.report === 'yes', S.report === 'yes' ? '앱 오류를 개발팀에 신고했다' : '앱 오류를 신고하지 않았다']);
     return P;
   };
@@ -640,7 +642,7 @@
             <button type="button" class="ee-choice ga-launch" data-v="delay" ${pressed(S.launch, 'delay')}><b>2주 미루고 독버섯 데이터를 보강합니다</b><small>경쟁 앱보다 늦어진다</small></button>
           </div>${navBtns(true, '다음 ▶', !S.launch)}`;
     if (i === 2) body = `<h2>신뢰도 기준을 정해요</h2>
-          <p>AI가 자신 없는 답은 이름 대신 <b>"판별 불가"</b>로 보여 줘요. 기준을 높이면 더 안전하지만, 답을 못 주는 경우가 늘어요.</p>
+          <p>AI가 자신 없으면 <b>"판별 불가"</b>로 답해요. 기준이 높을수록 안전하지만 답이 줄어요.</p>
           <div class="ga-row"><label for="ga-th"><b>신뢰도 기준</b></label><span class="ga-spacer"></span><span class="ga-coins" id="ga-thv">${S.th}%</span></div>
           <input type="range" id="ga-th" min="50" max="95" step="5" value="${S.th}">
           <p class="ga-hint" style="margin:0">아래 12칸은 <b>테스트 사진 12장에 AI가 매긴 확신도</b>예요. 기준보다 낮은 칸은 사용자에게 이름 대신 "판별 불가"로 보여요.</p>
@@ -761,9 +763,56 @@
     return `<span class="ga-pcrop" style="background-image:url('${it.img}');background-size:${Z.toFixed(1)}% auto;background-position:${px.toFixed(1)}% ${py.toFixed(1)}%" role="img" aria-label="${esc(it.label)} 사진"></span>`;
   };
   const MUSH_IDS = ['brown', 'umbrella', 'yellow', 'white'];
+  /* 관찰 카드: 학생이 고른 특징을 장면 2 도감과 비교 (정답 채점 없음, 닮은 정도만 보여 줌) */
+  const OBS_Q = [
+    ['cap', '갓 색', ['노란색', '흰색', '갈색']],
+    ['gill', '주름 색 (갓 아래)', ['노란색', '흰색', '갈색']],
+    ['ring', '턱받이 (대의 치마 모양)', ['있음', '없음']],
+    ['volva', '밑동 주머니', ['있음', '없음']]
+  ];
+  const GUIDE = {
+    egg: { cap: '노란색', gill: '노란색', ring: '있음', volva: '있음' },
+    forsythia: { cap: '노란색', gill: '흰색', ring: '있음', volva: '있음' },
+    virosa: { cap: '흰색', gill: '흰색', ring: '있음', volva: '있음' },
+    parasol: { cap: '갈색', gill: '흰색', ring: '있음', volva: '없음' },
+    cluster: { cap: '갈색', gill: '노란색', ring: '없음', volva: '없음' }
+  };
+  const OBS_IMG = { brown: 'images/label-cluster.jpg', umbrella: 'images/label-parasol.jpg', white: 'images/label-virosa.jpg', yellow: 'images/cam-mushroom.jpg' };
+  const obsMatch = a => {
+    const sc = Object.entries(GUIDE).map(([k, g]) => [k, OBS_Q.filter(([q]) => g[q] === a[q]).length]);
+    const top = Math.max(...sc.map(x => x[1]));
+    return { top, names: sc.filter(x => x[1] === top).map(x => x[0]) };
+  };
+  function observe(it, onDone) {
+    const a = {};
+    const box = document.createElement('div'); box.className = 'ga-obs'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '관찰 카드');
+    box.innerHTML = `<div class="ee-panel ga-obscard">
+      <div class="ga-obsimg"><img src="${OBS_IMG[it.id]}" alt="${esc(it.label)} 가까이 본 사진"><span class="ga-ainote">${AI_NOTE}</span></div>
+      <div class="ga-stack ga-obsq"><span class="ga-eyebrow">관찰 카드 · ${esc(it.label)}</span>
+        <p style="margin:0">가까이 보고 특징을 골라 보세요. 장면 2의 도감과 비교해 줄게요.</p>
+        ${OBS_Q.map(([q, t, opts]) => `<div><b class="ga-obst">${t}</b><div class="ga-seg">${opts.map(o => `<button type="button" class="ee-choice ga-ob" data-q="${q}" data-v="${o}" aria-pressed="false">${o}</button>`).join('')}</div></div>`).join('')}
+        <div id="ga-obsres"></div>
+        <div class="ga-nav"><button class="ee-button secondary" type="button" id="ga-obsx">닫기</button><button class="ee-button" type="button" id="ga-obsok" disabled>도감과 비교하기</button></div>
+      </div></div>`;
+    root.appendChild(box); snd('paper');
+    const ok = $('#ga-obsok', box);
+    $$('.ga-ob', box).forEach(b => b.onclick = () => {
+      a[b.dataset.q] = b.dataset.v; snd('tap');
+      $$(`.ga-ob[data-q="${b.dataset.q}"]`, box).forEach(x => x.setAttribute('aria-pressed', x === b));
+      ok.disabled = Object.keys(a).length < OBS_Q.length;
+    });
+    $('#ga-obsx', box).onclick = () => { box.remove(); snd('tap'); };
+    ok.onclick = () => {
+      if (ok.dataset.done) { box.remove(); onDone(a, obsMatch(a)); return; }
+      const m = obsMatch(a); snd('collect');
+      $('#ga-obsres', box).innerHTML = `<div class="ee-notice"><b>도감에서 가장 닮은 버섯</b> · ${m.names.map(k => `${SPECIES[k].name}(${SPECIES[k].edible ? '식용' : '맹독'})`).join(', ')} <small>(특징 4개 중 ${m.top}개 같음)</small><br>그래도 겉모습만으로는 확신할 수 없어요. 닮은 독버섯이 있을 수 있거든요.</div>`;
+      $$('.ga-ob', box).forEach(b => b.disabled = true);
+      ok.textContent = '조사 노트에 적기 ▶'; ok.dataset.done = '1'; $('#ga-obsx', box).remove();
+    };
+  }
   function findPhase(done) {
     SPOTS.forEach(sp => { const im = new Image(); im.src = sp.img; }); new Image().src = 'images/cam-mushroom.jpg';
-    const seen = new Set(); let spot = 0, hinted = false;
+    const seen = new Set(); let spot = 0, hinted = false, lx = null, ly = null;
     const ed = $('.ga-editor'); ed.classList.add('ga-wide');
     const itemHTML = it => {
       const got = seen.has(it.id), [l, t, w, h] = it.box;
@@ -785,23 +834,45 @@
         <div class="ga-row"><h2 style="margin-right:auto">학교 마당을 둘러보며 버섯을 찾아보세요</h2>
         <div class="ga-spots">${SPOTS.map((s, j) => `<button type="button" class="ga-spot ${j === spot ? 'now' : ''}" data-j="${j}">${j + 1}. ${s.name}</button>`).join('')}</div></div>
         <div class="ga-find" id="ga-find"><img class="ga-findbg" src="${S0.img}" alt="${S0.name} 사진" draggable="false"><span class="ga-ainote">${AI_NOTE}</span>
+          <div class="ga-dark" id="ga-dark" aria-hidden="true"></div><div class="ga-lens" id="ga-lens" aria-hidden="true" style="background-image:url('${S0.img}')"></div>
           ${S0.items.map(itemHTML).join('')}
           <div class="ga-fmsg" id="ga-fmsg" role="status"></div></div>
         <div class="ga-row">${note()}${seen.has('yellow') ? '<button class="ee-button" id="ga-next" type="button">노란 버섯 찍기 ▶</button>' : ''}</div></section>`);
       if (last) say(...last);
-      $$('.ga-spot').forEach(b => b.onclick = () => { spot = +b.dataset.j; snd('door'); render(); });
+      const fb = $('#ga-find'), lens = $('#ga-lens'), dark = $('#ga-dark');
+      const aim = (x, y) => {
+        const r = fb.getBoundingClientRect(), R = lens.offsetWidth / 2, Z = 2.2;
+        lx = x; ly = y;
+        fb.style.setProperty('--mx', x + 'px'); fb.style.setProperty('--my', y + 'px');
+        lens.style.transform = `translate(${x - R}px, ${y - R}px)`;
+        lens.style.backgroundSize = `${r.width * Z}px ${r.height * Z}px`;
+        lens.style.backgroundPosition = `${-(x * Z - R)}px ${-(y * Z - R)}px`;
+      };
+      const fromEv = e => { const r = fb.getBoundingClientRect(); aim(Math.max(0, Math.min(r.width, e.clientX - r.left)), Math.max(0, Math.min(r.height, e.clientY - r.top))); };
+      fb.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons) fromEv(e); });
+      fb.addEventListener('pointerdown', fromEv);
+      $$('.ga-fi').forEach(b => b.addEventListener('focus', () => { const r = fb.getBoundingClientRect(), q = b.getBoundingClientRect(); aim(q.left - r.left + q.width / 2, q.top - r.top + q.height / 2); }));
+      requestAnimationFrame(() => { const r = fb.getBoundingClientRect(); aim(lx == null ? r.width * .5 : Math.min(lx, r.width), ly == null ? r.height * .6 : Math.min(ly, r.height)); });
+      $$('.ga-spot').forEach(b => b.onclick = () => { spot = +b.dataset.j; lx = ly = null; snd('door'); render(); });
       $$('.ga-fi').forEach(b => b.onclick = () => tap(b.dataset.id, b));
       $('.ga-findbg').onclick = e => { const r = $('#ga-find').getBoundingClientRect(), d = document.createElement('span'); d.className = 'ga-ripple'; d.style.left = (e.clientX - r.left) + 'px'; d.style.top = (e.clientY - r.top) + 'px'; $('#ga-find').appendChild(d); setTimeout(() => d.remove(), 500); };
       if ($('#ga-next')) $('#ga-next').onclick = () => { clearTimeout(timer); ed.classList.remove('ga-wide'); snd('tap'); done(); };
     };
     const tap = (id, el) => {
       const it = ITEMS.find(i => i.id === id);
-      const first = !seen.has(id); seen.add(id);
+      if ((it.kind === 'mush' || it.kind === 'target') && !seen.has(id)) {
+        observe(it, (a, m) => { S.obs[id] = Object.assign({ match: m.names }, a); record(id, it, true); });
+        return;
+      }
+      record(id, it, !seen.has(id));
+    };
+    const record = (id, it, first) => {
+      seen.add(id);
       snd(it.kind === 'thing' ? 'tap' : 'collect');
       render();
       if (it.kind !== 'thing' && first) fx(it.kind === 'target' ? 'unlock' : 'clue', $(`.ga-fi[data-id="${id}"]`));
       const nM = MUSH_IDS.filter(i => seen.has(i)).length;
-      if (it.kind === 'target') say('friend', `${it.msg} 와, 이 노란 버섯 제일 예쁘다! 이걸 앱으로 찍어 보자.`, 'happy');
+      if (it.kind === 'target') say('friend', `${it.msg} 관찰은 끝났고… 이제 앱으로 찍어서 확인해 보자!`, 'happy');
       else if (it.kind === 'mush' && nM === 1 && first) say('user', `${it.msg} <br><small>버섯은 식물이 아니라 <b>균류</b>예요.</small>`);
       else if (it.kind === 'mush' && nM === 4 && first) say('user', `${it.msg} <br><small>버섯을 4종류나 찾았어요. 겉모습만으로 이름을 알기는 어렵네요.</small>`);
       else say('user', it.msg + (it.kind === 'life' && first ? ' <small>(조사 노트에 적었어요)</small>' : ''));
@@ -810,7 +881,7 @@
     const hint = () => { hinted = true; say('friend', '아까 <b>벤치와 큰 나무</b> 쪽 낙엽 더미 옆에 뭔가 노랗게 보였는데?', 'explaining'); };
     const timer = setTimeout(() => { if ($('#ga-find') && !seen.has('yellow') && !hinted) hint(); }, 25000);
     render();
-    say('friend', '선생님이 우리 학교에 사는 생물을 찾아 조사 노트에 적으래. 비 온 다음 날이라 버섯이 많대! 여기저기 둘러보자.', 'happy');
+    say('friend', '선생님이 우리 학교에 사는 생물을 찾아서 조사 노트에 적으라고 하셨어. 비 온 다음 날이라 버섯이 많을 거래! 여기저기 둘러보자.', 'happy');
   }
 
   /* ---------- 5 사용자: 교내 생물 다양성 조사 ---------- */
@@ -818,13 +889,13 @@
   const nShots = () => (S.shots || []).length;
   const conf = () => [87, 74, 66][Math.max(0, nShots() - 1)];
   const SHARE = {
-    edible: { plain: `앱이 식용이래! 확신 ${'{c}'}% 🍄 화단 낙엽 옆에 있음`, care: '앱은 식용이래. 근데 확실하지 않으니 따지 말자' },
-    toxic: { plain: '앱이 독버섯이래! 화단 버섯 만지지 마', care: '앱이 독버섯이래. 확실한 건 선생님께 여쭤보자, 만지지 마' },
+    edible: { plain: `앱이 식용이래! 확신 ${'{c}'}% 🍄 벤치 옆 낙엽 쪽에 있음`, care: '앱은 식용이래. 근데 확실하지 않으니 따지 말자' },
+    toxic: { plain: '앱이 독버섯이래! 그 노란 버섯 만지지 마', care: '앱이 독버섯이래. 확실한 건 선생님께 여쭤보자, 만지지 마' },
     unk: { plain: '앱이 판별 불가래. 무슨 버섯이지?', care: '앱도 모른대. 만지지 말고 선생님께 여쭤보자' }
   };
   const shareText = (r, v) => SHARE[r][v].replace('{c}', conf());
   function sUser() {
-    Object.assign(S, { shots: [], share: null, userChoice: null, ate: null, report: null, pushed: false });
+    Object.assign(S, { shots: [], share: null, userChoice: null, ate: null, report: null, pushed: false, obs: {} });
     stage.innerHTML = `<div class="ga-scene">${who('user', '통합과학 「우리 학교 생물 다양성 조사」 시간이에요. 비 온 다음 날, 학교 마당을 둘러보며 생물을 찾아요.', 'courtyard', [['user', 560, 650, 'right', 1.8], ['friend', 740, 650, 'left', 1.8]], '장면 5 · 학교 화단')}
       <div class="ga-editor"><div id="ga-step"></div>
         <div class="ga-phone" aria-label="버섯도감 AI 화면"><div class="ga-screen" id="ga-uphone"></div></div>
@@ -868,15 +939,18 @@
           ${navBtns(false, `판별 요청 (사진 ${nShots()}장) ▶`, !nShots())}`;
       if (i === 1) {
         const line = { edible: `식용이래! 확신 ${conf()}%. 조사 끝나고 따 가서 저녁에 라면에 넣자.`, toxic: '독버섯이래… 만지지 말자.', unk: '판별 불가래. 먹어도 되는 건지 모르겠다.' }[r];
+        const o = S.obs.yellow, mine = o ? o.match.map(k => SPECIES[k].name).join(', ') : '';
+        const clash = o && r === 'edible' && !o.match.includes('egg');
         body = `<h2>판별 결과가 나왔어요</h2><p>오른쪽 앱 화면을 확인하세요.</p>
           <div class="ga-msg">${face('friend', r === 'edible' ? 'happy' : 'worried')}<div class="ee-speech" style="flex:1;min-height:auto"><p class="ee-speaker">다온</p>${line}</div></div>
+          ${o ? `<div class="ee-notice ga-mine"><b>내 관찰 카드</b> · 도감에서 가장 닮은 버섯: ${mine}${clash ? '<br><b>앱 결과(노란달걀버섯)와 내 관찰이 달라요.</b> 무엇을 믿어야 할까요?' : ''}</div>` : ''}
           ${navBtns(false, '다음 ▶', false)}`;
       }
       if (i === 2) {
         const reply = !S.share ? '' : S.share === 'none' ? '<p class="ga-hint">단톡방에는 아무것도 올리지 않았어요.</p>'
-          : `<div class="ga-bub me">${esc(shareText(r, S.share))}</div><div class="ga-bub"><b>준우</b> ${r === 'edible' && S.share === 'plain' ? '오 진짜? 이따 나도 따 가야지 ㅋㅋ' : S.share === 'care' ? 'ㅇㅋ 안 건드릴게!' : '헐 조심해야겠다'}</div>`;
+          : `<div class="ga-bub me"><span class="ga-bubimg"></span>${esc(shareText(r, S.share))}</div><div class="ga-bub"><b>준우</b> ${r === 'edible' && S.share === 'plain' ? '오 진짜? 이따 나도 따 가야지 ㅋㅋ' : S.share === 'care' ? 'ㅇㅋ 안 건드릴게!' : '헐 조심해야겠다'}</div>`;
         body = `<h2>반 단톡방에 결과를 올릴까요?</h2>
-          <div class="ga-chat"><span class="ga-hint">「1학년 생물 조사」 단톡방</span><div class="ga-bub"><b>준우</b> 우리 조는 무당벌레 찾음 🐞 화단에 버섯 엄청 많던데 그거 뭐야?</div>${reply}</div>
+          <div class="ga-chat"><span class="ga-hint">「1학년 생물 조사」 단톡방</span><div class="ga-bub"><b>준우</b> 우리 조는 무당벌레 찾음 🐞 근데 너네 조 벤치 옆에 있던 노란 버섯 그거 뭐야? 먹는 거야?</div>${reply}</div>
           <div class="ga-choices">${[['plain', '결과만 올린다', shareText(r, 'plain')], ['care', '주의 문구와 함께 올린다', shareText(r, 'care')], ['none', '올리지 않는다', '우리 조 일만 하면 된다']].map(o => `<button type="button" class="ee-choice ga-sh" data-v="${o[0]}" ${pressed(S.share, o[0])}><b>${o[1]}</b><small>${esc(o[2])}</small></button>`).join('')}</div>
           ${navBtns(true, '다음 ▶', !S.share)}`;
       }
@@ -899,7 +973,7 @@
           eat: `${face('user', 'worried')}<div class="ee-speech" style="flex:1;min-height:auto"><p class="ee-speaker">그날 밤</p>배가 아파 병원에 갔어요. "독버섯 중독이 의심됩니다."</div>`
         }[S.userChoice];
         body = `<h2>앱이 틀렸어요</h2><div class="ga-msg">${reveal}</div>
-          <p>${S.share === 'plain' ? '<b class="ga-warnline">단톡방을 본 준우도 화단 버섯을 따 갔대요.</b> ' : ''}앱은 "식용 가능"이라고 했어요. 이 사실을 개발팀에 알릴까요?</p>
+          <p>${S.share === 'plain' ? '<b class="ga-warnline">단톡방을 본 준우도 그 노란 버섯을 따 갔대요.</b> ' : ''}앱은 "식용 가능"이라고 했어요. 이 사실을 개발팀에 알릴까요?</p>
           <div class="ga-choices">${[['yes', '앱에서 오류 신고하기', `판별 결과 화면과 사진 ${nShots()}장을 보낸다`], ['no', '그냥 넘어간다', '신고해도 달라질 게 없을 것 같다']].map(o => `<button type="button" class="ee-choice ga-rp" data-v="${o[0]}" ${pressed(S.report, o[0])}><b>${o[1]}</b><small>${o[2]}</small></button>`).join('')}</div>
           ${navBtns(false, '장면 마치기 ▶', !S.report)}`;
       }
@@ -1009,7 +1083,7 @@
   };
   function userNotes() {
     const n = [];
-    if (S.share === 'plain' && appResult() === 'edible') n.push('단톡방을 본 준우도 화단 버섯을 따 갔어요. 내 공유가 다른 사람의 위험이 될 수도 있어요.');
+    if (S.share === 'plain' && appResult() === 'edible') n.push('단톡방을 본 준우도 그 노란 버섯을 따 갔어요. 내 공유가 다른 사람의 위험이 될 수도 있어요.');
     if (S.report === 'yes') n.push(S.log === 'off' ? '앱에 기록이 없었지만, 당신이 신고하며 보낸 결과 화면이 앱이 틀렸다는 증거가 되었어요. 개발팀은 다음 업데이트에서 판별을 고쳤어요.' : '당신의 오류 신고로 개발팀이 개나리광대버섯 판별을 고쳤어요. 다음 사용자는 같은 실수를 겪지 않아요.');
     if (S.report === 'no') n.push('아무도 신고하지 않아, 같은 오류가 다른 사용자에게 계속될 수 있어요.');
     return n;

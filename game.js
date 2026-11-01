@@ -272,7 +272,7 @@
   function who(key, mission, bg, actors, tag) {
     const r = CAST[key];
     const mini = bg ? `<div class="ga-minibg"><canvas width="1280" height="720" data-bg="${bg}" data-actors='${JSON.stringify(actors)}' role="img" aria-label="${esc(tag || '장면')}"></canvas>${tag ? `<span class="ee-badge">${tag}</span>` : ''}</div>` : '';
-    return `<aside class="ee-panel ga-who">${mini}<div class="ga-whohead">${face(key, 'neutral', r.name)}<div><div class="ga-role">${r.role}</div><div class="ga-hint">${esc(nick())}의 역할 · ${r.name}</div></div></div><p class="ga-mission">${mission}</p></aside>`;
+    return `<aside class="ee-panel ga-who">${mini}<div class="ga-whohead">${face(key, 'neutral', r.name)}<div class="ga-role">${r.role}</div></div><p class="ga-mission">${mission}</p></aside>`;
   }
   /* 한 화면에 한 질문: 단계 표시와 이전/다음 버튼 */
   const stepBar = (labels, i) => `<ol class="ga-steps" aria-label="진행 순서">${labels.map((l, j) => `<li class="${j < i ? 'done' : j === i ? 'now' : ''}"${j === i ? ' aria-current="step"' : ''}><span>${j < i ? '✓' : j + 1}</span>${l}</li>`).join('')}</ol>`;
@@ -343,9 +343,9 @@
     let tox = k ? 88 : g ? 71 : 60;
     if (c && !clean) tox -= 6;
     const notes = [];
-    if (k && !g) notes.push('국내 표본은 사진 수가 적어 전체 숫자는 낮지만, 국내 독버섯은 더 잘 알아봅니다.');
-    if (c && !clean) notes.push('동호회 사진의 틀린 이름표가 섞여 독버섯을 헷갈리는 경우가 늘었습니다.');
-    if (c && clean) notes.push('이름표 검수로 동호회 사진의 틀린 이름표를 걸러 냈습니다.');
+    if (k && !g) notes.push('국내 표본은 사진 수가 적어 전체 정확도는 낮지만, 국내 독버섯은 더 잘 알아봐요.');
+    if (c && !clean) notes.push('동호회 사진의 틀린 이름표 때문에 독버섯을 헷갈리는 경우가 늘었어요.');
+    if (c && clean) notes.push('이름표 검수 덕분에 동호회 사진의 틀린 이름표를 걸러 냈어요.');
     return { overall, tox, note: notes.join(' ') };
   }
   function score() {
@@ -483,8 +483,8 @@
       <div class="ee-panel ga-stack">
         <span class="ga-eyebrow">책임성 · 중·고등</span>
         <h1>버섯도감 AI의<br><em>네 사람</em></h1>
-        <p class="ga-lead">사진 한 장으로 버섯 이름을 알려 주는 앱. 그 앱을 만들고, 내놓고, 쓰는 네 사람의 자리에 차례로 서 봅니다.</p>
-        <div class="ga-row"><button class="ee-button" id="ga-start" type="button">탐험을 시작합니다</button><span class="ga-hint">약 20분 · 1인 1기기</span></div>
+        <p class="ga-lead">사진 한 장으로 버섯 이름을 알려 주는 앱. 그 앱을 만들고, 내놓고, 쓰는 네 사람의 역할을 차례로 맡아 봐요.</p>
+        <div class="ga-row"><button class="ee-button" id="ga-start" type="button">탐험 시작 ▶</button></div>
         ${resumeBox()}
       </div>
       ${banner('ai_lab', [['data', 470, 600], ['developer', 590, 610], ['guide', 640, 520], ['deployer', 700, 610], ['user', 820, 600]])}
@@ -540,18 +540,18 @@
   const LAB_CREW = [['data', 430, 620], ['developer', 560, 640], ['guide', 660, 560], ['deployer', 760, 640], ['user', 890, 620]];
   function sPrologue() {
     talk([
-      { who: 'guide', expr: 'happy', text: `어서 와요, <b>${esc(nick())}</b>! 여기는 윤리시티 AI 실습실이에요. 오늘은 <b>버섯도감 AI</b>라는 앱이 만들어지는 과정을 함께 시뮬레이션해 볼 거예요.` },
-      { who: 'guide', expr: 'explaining', text: '사진 한 장만 찍으면 버섯 이름을 알려 주는 앱이에요. 새봄, 온유, 지호, 하늘이 각자 맡은 일이 있어요. 오늘은 당신이 <b>네 사람의 자리</b>에 차례로 서 보는 거예요.' },
-      { who: 'guide', expr: 'neutral', text: '정답을 맞히는 시간이 아니에요. 그 자리에 있다면 실제로 했을 선택을 해 주세요. 어떤 일이 일어났는지는 마지막에 함께 확인해요.', btn: '오늘의 순서 보기 ▶' }
+      { who: 'guide', expr: 'happy', text: `어서 와요, <b>${esc(nick())}</b>! 여기는 윤리시티 AI 실습실이에요. 오늘은 <b>버섯도감 AI</b>라는 앱이 어떻게 만들어지고 쓰이는지 함께 따라가 볼 거예요.` },
+      { who: 'guide', expr: 'explaining', text: '사진 한 장만 찍으면 버섯 이름을 알려 주는 앱이에요. 이 앱에는 새봄, 온유, 지호, 하늘, 네 사람이 관여해요. 오늘 당신은 <b>네 사람의 역할</b>을 차례로 맡게 돼요.' },
+      { who: 'guide', expr: 'neutral', text: '정답을 고르는 게임이 아니에요. 그 자리에 있다면 실제로 했을 선택을 해 주세요. 무슨 일이 일어났는지는 마지막에 함께 확인해요.', btn: '오늘의 순서 보기 ▶' }
     ], roleCards, 'ai_lab', LAB_CREW);
   }
   function roleCards() {
     const what = { data: 'AI가 공부할 사진을 모아요', developer: '모델을 시험하고 출시를 정해요', deployer: '앱 소개 화면을 심사해요', user: '앱으로 버섯을 찍어 봐요' };
     stage.innerHTML = `<section class="ee-panel ga-stack" style="max-width:940px;margin:0 auto;width:100%">
-      <span class="ga-eyebrow">장면 1 · 오늘의 순서</span><h2>오늘 서 볼 네 자리</h2>
-      <p>앱이 만들어져 사용자에게 닿기까지, 네 사람의 자리에 차례로 서 봅니다. 각 자리에서 내린 선택은 다음 사람에게 그대로 이어져요.</p>
+      <span class="ga-eyebrow">장면 1 · 오늘의 순서</span><h2>오늘 맡을 네 역할</h2>
+      <p>앱이 만들어져 사용자에게 닿기까지 네 사람이 차례로 일해요. 한 사람의 선택은 다음 사람에게 그대로 이어져요.</p>
       <ol class="ga-roles">${ROLE_KEYS.map((k, i) => `<li class="ga-rcard ${i ? '' : 'now'}"><span class="ee-badge">${i + 1}번째</span>${face(k, i ? 'neutral' : 'happy')}<b>${CAST[k].role}</b><small>${CAST[k].name}<br>${what[k]}</small></li>`).join('')}</ol>
-      <div class="ga-nav"><button class="ee-button" id="ga-go" type="button">${CAST.data.name}의 자리로 ▶</button></div></section>`;
+      <div class="ga-nav"><button class="ee-button" id="ga-go" type="button">첫 번째 역할 시작 ▶</button></div></section>`;
     paint(stage); $('#ga-go').focus({ preventScroll: true });
     $('#ga-go').onclick = () => { snd('door'); go(2); };
   }
@@ -559,7 +559,7 @@
   /* ---------- 2 데이터 수집자 ---------- */
   const DATA_STEPS = ['사진 고르기', '이름표 검수'];
   function sData() {
-    stage.innerHTML = `<div class="ga-scene">${who('data', '예산 100코인으로 AI가 공부할 버섯 사진을 모으고, 이름표를 검수합니다.', 'library', [['data', 640, 650, 'down', 1.8]], '장면 2 · 도서관 자료실')}<div id="ga-step"></div></div>`;
+    stage.innerHTML = `<div class="ga-scene">${who('data', '예산 100코인으로 AI가 공부할 버섯 사진을 고르고, 이름표가 맞는지 검수해요.', 'library', [['data', 640, 650, 'down', 1.8]], '장면 2 · 도서관 자료실')}<div id="ga-step"></div></div>`;
     paint(stage); stepCart();
   }
   function stepCart() {
@@ -604,7 +604,7 @@
           <div class="ga-refs compact ga-refs-photo">${['egg', 'forsythia', 'virosa', 'parasol', 'cluster'].map(k => `<div class="ee-notice ga-ref"><img class="ga-refimg" src="images/cut-${k}.png" alt="${SPECIES[k].name} 사진" draggable="false"><div><b>${SPECIES[k].name} ${SPECIES[k].edible ? '(식용)' : '(맹독)'}</b>${feat[k]}</div></div>`).join('')}</div>
           <div class="ga-labels ga-tight-labels">${LABELS.map((l, i) => `<div class="ga-lab"><img src="${l.img}" alt="버섯 사진 ${i + 1}" loading="lazy" draggable="false"><span class="ee-badge">${l.tag}</span>
             <div class="ga-yn"><button type="button" class="ee-choice" data-i="${i}" data-v="1" aria-pressed="false">맞음</button><button type="button" class="ee-choice" data-i="${i}" data-v="0" aria-pressed="false">틀림</button></div></div>`).join('')}</div>
-          <p class="ga-hint">게임용으로 단순화한 특징입니다. 실제 야생 버섯은 이것만으로 구별할 수 없어요. 사진은 ${AI_NOTE}.</p>
+          <p class="ga-hint">게임용으로 단순하게 정리한 특징이에요. 실제 야생 버섯은 이것만으로 구별할 수 없어요. 사진은 ${AI_NOTE}.</p>
           ${navBtns(true, '검수 완료 ▶', true, '<button class="ee-button secondary" id="ga-skip" type="button">검수 건너뛰기</button>')}
         </section>`);
     $$('.ga-yn .ee-choice').forEach(b => b.onclick = () => {
@@ -613,7 +613,7 @@
       $('#ga-next').disabled = Object.keys(S.labels).length < LABELS.length;
     });
     $('#ga-prev').onclick = () => { snd('tap'); stepCart(); };
-    $('#ga-skip').onclick = () => { S.labelSkipped = true; S.labels = {}; snd('tap'); toast('검수를 건너뛰고 다음 단계로 넘어갑니다.'); setTimeout(() => go(3), 600); };
+    $('#ga-skip').onclick = () => { S.labelSkipped = true; S.labels = {}; snd('tap'); toast('검수를 건너뛰고 다음 단계로 넘어가요.'); setTimeout(() => go(3), 600); };
     $('#ga-next').onclick = () => { snd('paper'); toast(`이름표 ${LABELS.length}장을 모두 살펴봤어요.`); setTimeout(() => go(3), 600); };
   }
 
@@ -621,7 +621,7 @@
   const CONF = [97, 94, 91, 88, 86, 83, 79, 76, 72, 68, 64, 58];
   const DEV_STEPS = ['결과 보기', '출시 시기', '신뢰도 기준', '판별 기록'];
   function sDev() {
-    stage.innerHTML = `<div class="ga-scene">${who('developer', '모델을 시험하고 출시 시기, 신뢰도 기준, 기록 저장을 정합니다.', 'ai_lab', [['developer', 640, 650, 'down', 1.8]], '장면 3 · AI 실습실')}<div id="ga-step"></div></div>`;
+    stage.innerHTML = `<div class="ga-scene">${who('developer', 'AI를 시험해 보고, 출시 시기와 신뢰도 기준, 기록 저장 여부를 정해요.', 'ai_lab', [['developer', 640, 650, 'down', 1.8]], '장면 3 · AI 실습실')}<div id="ga-step"></div></div>`;
     paint(stage); devStep(0);
   }
   function devStep(i) {
@@ -632,7 +632,7 @@
           <div class="ga-dash">
             <div class="ga-row" style="align-items:flex-end"><div><span class="ga-hint">전체 정확도</span><div class="ga-big">${acc}%</div></div><span class="ga-spacer"></span>
               <div class="ga-tabs" role="tablist"><button type="button" class="ee-choice" role="tab" aria-selected="true" aria-pressed="true" id="ga-t1">요약</button><button type="button" class="ee-choice" role="tab" aria-selected="false" aria-pressed="false" id="ga-t2">종별 정확도 보기</button></div></div>
-            <div id="ga-tab"><p>테스트 사진 1,200장 가운데 ${Math.round(1200 * acc / 100)}장을 맞혔습니다. ${note}</p></div>
+            <div id="ga-tab"><p>테스트 사진 1,200장 가운데 ${Math.round(1200 * acc / 100).toLocaleString()}장을 맞혔어요. ${note}</p></div>
           </div>${recap}${navBtns(false, '다음 ▶', false)}`;
     if (i === 1) body = `<h2>출시는 언제 할까요?</h2>${recap}
           <div class="ga-choices">
@@ -640,7 +640,7 @@
             <button type="button" class="ee-choice ga-launch" data-v="delay" ${pressed(S.launch, 'delay')}><b>2주 미루고 독버섯 데이터를 보강합니다</b><small>경쟁 앱보다 늦어진다</small></button>
           </div>${navBtns(true, '다음 ▶', !S.launch)}`;
     if (i === 2) body = `<h2>신뢰도 기준을 정해요</h2>
-          <p>AI의 확신이 이 값보다 낮으면 이름 대신 <b>"판별 불가"</b>를 보여 줍니다. 슬라이더를 움직여 미리보기를 살펴보세요.</p>
+          <p>AI가 자신 없는 답은 이름 대신 <b>"판별 불가"</b>로 보여 줘요. 기준을 높이면 더 안전하지만, 답을 못 주는 경우가 늘어요.</p>
           <div class="ga-row"><label for="ga-th"><b>신뢰도 기준</b></label><span class="ga-spacer"></span><span class="ga-coins" id="ga-thv">${S.th}%</span></div>
           <input type="range" id="ga-th" min="50" max="95" step="5" value="${S.th}">
           <p class="ga-hint" style="margin:0">아래 12칸은 <b>테스트 사진 12장에 AI가 매긴 확신도</b>예요. 기준보다 낮은 칸은 사용자에게 이름 대신 "판별 불가"로 보여요.</p>
@@ -648,7 +648,7 @@
           <div class="ga-row"><span class="ga-hint">예상 앱 별점</span><span class="ga-stars" id="ga-st"></span><span class="ga-hint" id="ga-stx"></span></div>
           ${navBtns(true, '다음 ▶', false)}`;
     if (i === 3) body = `<h2>판별 기록을 저장할까요?</h2>
-          <p>사용자가 찍은 사진과 앱이 내놓은 답을 서버에 남겨 두는 기능입니다.</p>
+          <p>사용자가 찍은 사진과 앱이 알려 준 답을 서버에 남겨 두는 기능이에요.</p>
           <div class="ga-choices">
             <button type="button" class="ee-choice ga-log" data-v="on" ${pressed(S.log, 'on')}><b>기록을 저장합니다</b><small>서버비 월 +20%</small></button>
             <button type="button" class="ee-choice ga-log" data-v="off" ${pressed(S.log, 'off')}><b>저장하지 않습니다</b><small>비용 절감</small></button>
@@ -660,7 +660,7 @@
         if (!S.tabOpened) fx('clue', $('#ga-t2'));
         S.tabOpened = true; tab(true); snd('paper');
         $('#ga-tab').innerHTML = `<div class="ga-bars">${[['표고', 97], ['노란달걀버섯', 93], ['개나리광대버섯', tox]].map(([n, v]) => `<div class="ga-bar"><span>${n}</span><div class="ga-track"><div class="ga-fill ${v < 85 ? 'warn' : ''}" data-w="${v}" style="width:0"></div></div><span class="ga-v">${v}%${v < 85 ? ' ▲' : ''}</span></div>`).join('')}</div>
-        <p><b>맹독성 개나리광대버섯을 알아보는 비율은 ${tox}%입니다.</b> 나머지는 대부분 노란달걀버섯(식용)으로 판정했습니다.</p>`;
+        <p><b>맹독성 개나리광대버섯은 ${tox}%만 알아봤어요.</b> 나머지는 대부분 식용인 노란달걀버섯으로 잘못 판정했어요.</p>`;
         requestAnimationFrame(() => requestAnimationFrame(() => $$('#ga-tab .ga-fill').forEach(f => { f.style.width = f.dataset.w + '%'; })));
       };
       $('#ga-t1').onclick = () => { tab(false); snd('tap'); };
@@ -686,7 +686,7 @@
   const DEP_STEPS = ['광고 문구', '경고문 위치', '연령 등급'];
   function sDeploy() {
     const AD = `"정확도 ${accInfo().overall}%! 이제 버섯 걱정 끝"`, AD2 = '사진으로 버섯 이름을 알아보는 학습용 앱';
-    stage.innerHTML = `<div class="ga-scene">${who('deployer', '앱마켓 심사를 맡았어요. 앱 소개 화면이 사용자에게 어떻게 보일지 정합니다.', 'classroom', [['deployer', 640, 650, 'down', 1.8]], '장면 4 · 교실 심사 회의')}
+    stage.innerHTML = `<div class="ga-scene">${who('deployer', '앱마켓 심사 담당이에요. 사용자에게 앱이 어떻게 보일지 정해요.', 'classroom', [['deployer', 640, 650, 'down', 1.8]], '장면 4 · 교실 심사 회의')}
       <div class="ga-editor"><div id="ga-step"></div>
         <div class="ga-phone" aria-label="앱 상세 화면 미리보기"><div class="ga-screen">
           <div class="ga-apphead"><div class="ga-appicon">${mush('egg')}</div><div><b style="font-size:17px">버섯도감 AI</b><br><span class="ga-hint">교육 · 생활</span></div></div>
@@ -710,17 +710,17 @@
     $$('.ga-slot').forEach(s => s.onclick = () => place(s));
     const step = i => {
       let body = '';
-      if (i === 0) body = `<h2>광고 문구를 심사해요</h2><p>개발팀이 제출한 문구입니다. 오른쪽 앱 화면에 어떻게 보이는지 확인하세요.</p><div class="ga-ad">${AD}</div>
+      if (i === 0) body = `<h2>광고 문구를 심사해요</h2><p>개발팀이 낸 문구예요. 오른쪽 앱 화면에 어떻게 보이는지 확인해 보세요.</p><div class="ga-ad">${AD}</div>
             <div class="ga-choices">
               <button type="button" class="ee-choice ga-adc" data-v="approve" ${pressed(S.ad, 'approve')}><b>그대로 승인합니다</b><small>숫자가 사실이면 문제없다</small></button>
               <button type="button" class="ee-choice ga-adc" data-v="revise" ${pressed(S.ad, 'revise')}><b>수정을 요청합니다</b><small>"${AD2}"</small></button>
             </div>${navBtns(false, '다음 ▶', !S.ad)}`;
-      if (i === 1) body = `<h2>경고문을 어디에 둘까요?</h2><p>경고문을 끌어 오른쪽 앱 화면의 두 자리 중 한 곳에 놓으세요. 자리를 눌러도 됩니다.</p>
+      if (i === 1) body = `<h2>경고문을 어디에 둘까요?</h2><p>경고문을 끌어 오른쪽 앱 화면의 두 자리 중 한 곳에 놓으세요. 자리를 눌러도 돼요.</p>
             <div id="ga-chiphome">${S.warn ? '<span class="ga-hint">경고문을 놓았어요. 다른 자리를 누르면 옮길 수 있어요.</span>' : '<span class="ga-warnchip" id="ga-wchip" tabindex="0" role="button">⚠ 식용 여부 판단에 사용하지 마세요</span>'}</div>
             ${navBtns(true, '다음 ▶', !S.warn)}`;
       if (i === 2) body = `<h2>연령 등급을 정해요</h2>
             <div class="ga-seg">${['전체', '12세', '15세'].map(a => `<button type="button" class="ee-choice ga-age" data-v="${a}" ${pressed(S.age, a)}>${a}</button>`).join('')}</div>
-            <p class="ga-hint">연령 등급은 결과에 영향을 주지 않고 토론 자료로만 쓰입니다.</p>
+            <p class="ga-hint">연령 등급은 결과에 영향을 주지 않아요. 토론할 때 이야기해 봐요.</p>
             ${navBtns(true, '심사 완료, 출시 ▶', !S.age)}`;
       showStep(`<section class="ee-panel ga-stack">${stepBar(DEP_STEPS, i)}${body}</section>`);
       if (i === 0) pick('.ga-adc', v => { S.ad = v; phone(); $('#ga-next').disabled = false; });
@@ -818,7 +818,7 @@
   const nShots = () => (S.shots || []).length;
   const conf = () => [87, 74, 66][Math.max(0, nShots() - 1)];
   const SHARE = {
-    edible: { plain: `앱이 식용이래! 확신 ${'{c}'}% 🍄 화단 나무 밑에 많음`, care: '앱은 식용이래. 근데 확실하지 않으니 따지 말자' },
+    edible: { plain: `앱이 식용이래! 확신 ${'{c}'}% 🍄 화단 낙엽 옆에 있음`, care: '앱은 식용이래. 근데 확실하지 않으니 따지 말자' },
     toxic: { plain: '앱이 독버섯이래! 화단 버섯 만지지 마', care: '앱이 독버섯이래. 확실한 건 선생님께 여쭤보자, 만지지 마' },
     unk: { plain: '앱이 판별 불가래. 무슨 버섯이지?', care: '앱도 모른대. 만지지 말고 선생님께 여쭤보자' }
   };
@@ -960,7 +960,7 @@
         <section class="ee-panel ga-stack">
           <span class="ga-eyebrow">장면 6 · 책임 연결선 맵</span>
           <h2>책임은 누구에게 얼마나 있을까요?</h2>
-          <p>${S.ate ? '이 사고에 대해' : appResult() === 'edible' ? '이 아슬아슬한 순간에 대해' : '만약 사고가 났다면'} 네 사람의 책임을 어떻게 나눌지 정해 보세요. 합계가 100%가 되어야 합니다.</p>
+          <p>${S.ate ? '이 사고에 대해' : appResult() === 'edible' ? '이 아슬아슬한 순간에 대해' : '만약 사고가 났다면'} 네 사람의 책임을 어떻게 나눌지 정해 보세요. 합계는 100%가 되어야 해요.</p>
           <div class="ga-stack">${ROLE_KEYS.map(k => `<div class="ga-sl">${face(k)}<div><label for="ga-r-${k}">${CAST[k].role} · ${CAST[k].name}</label><input type="range" id="ga-r-${k}" min="0" max="100" step="5" value="${S.my[k]}"></div><span class="ga-v" id="ga-p-${k}">${S.my[k]}%</span></div>`).join('')}</div>
           <div class="ga-row"><b class="ga-sum" id="ga-sum"></b><span class="ga-spacer"></span><button class="ee-button secondary" id="ga-even" type="button">똑같이 나누기</button></div>
           <h3>가장 큰 책임을 준 이유</h3>
@@ -989,7 +989,7 @@
     const R = risks(), total = ROLE_KEYS.reduce((a, k) => a + riskCount(k), 0), blind = S.log === 'off';
     $('#ga-records').innerHTML = `<section class="ee-panel ga-stack">
       <span class="ga-eyebrow">게임이 남긴 기록</span><h2>네 사람의 선택</h2>
-      <p>▲는 위험 쪽으로 기운 선택, ●는 안전 쪽 선택입니다. 맵의 붉은 실선 굵기가 기록에 남은 위험 쪽 선택의 비율이에요.${total ? '' : ' 이번 탐험에서는 위험 쪽 선택이 없었어요.'}</p>
+      <p>▲는 위험한 쪽, ●는 안전한 쪽을 고른 선택이에요. 맵의 붉은 선이 굵을수록 그 사람의 위험한 선택이 많았다는 뜻이에요.${total ? '' : ' 이번 탐험에서는 위험 쪽 선택이 없었어요.'}</p>
       ${blind ? '<div class="ee-notice"><b>판별 기록이 없어요.</b> 개발 단계에서 기록을 저장하지 않아서, 앱이 실제로 무엇이라고 표시했는지 증명할 수 없어요. 앱 회사는 "사용자가 결과를 잘못 읽었을 수 있다"고 말하고, 책임은 마지막 사람에게 몰려요. 맵에서 사용자를 뺀 세 줄이 "기록 없음"으로 보이는 이유예요.</div>' : ''}
       <div class="ga-recs">${ROLE_KEYS.map(k => `<div class="ga-rec">${face(k)}<div><b>${CAST[k].role} · ${CAST[k].name}</b> <span class="ga-hint">내가 준 책임 ${S.my[k]}% · 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}</span>
         <ul>${R[k].map(([bad, b, g]) => `<li class="${bad ? 'risk' : 'safe'}">${bad ? b : g}</li>`).join('')}${k === 'developer' && S.tabOpened ? '<li class="risk">종별 정확도를 열어 보았다 (알고 있었다)</li>' : ''}</ul>${k === 'user' ? `<p class="ga-hint" style="margin:6px 0 2px">사용자로서의 실천 (책임 비율에는 넣지 않음)</p><ul class="ga-prac">${practice().map(([ok, t]) => `<li class="${ok ? 'ok' : 'no'}">${t}</li>`).join('')}</ul>` : ''}</div></div>`).join('')}</div>
@@ -1070,7 +1070,7 @@
       <section class="ee-panel ga-stack">
         <span class="ga-eyebrow">사례 탐구</span>
         <h2>게임 밖에서도 같은 질문이 일어나고 있어요</h2>
-        <p>사례 하나를 골라 읽고 원문 기사도 열어 보세요. 마음에 드는 사례가 없으면 마지막 카드에서 직접 뉴스를 찾아도 됩니다.</p>
+        <p>사례 하나를 골라 읽고 원문 기사도 열어 보세요. 마음에 드는 사례가 없으면 마지막 카드에서 직접 뉴스를 찾아도 돼요.</p>
         <div class="ga-cases">${CASES.map(c => `<button type="button" class="ee-choice ga-case ${c.own ? 'own' : ''}" data-id="${c.id}" data-v="${c.id}" aria-pressed="${S.caseId === c.id}"><span class="ga-when">${c.when}</span><b>${c.title}</b><span class="ga-roles-mini">${c.roles.map(r => `<span class="ee-badge">${r}</span>`).join('')}</span></button>`).join('')}</div>
       </section>
       <div id="ga-cd"></div></div>`;
@@ -1080,7 +1080,7 @@
   function caseDetail(quiet) {
     const c = CASES.find(x => x.id === S.caseId), R = S.refl;
     const body = c.own
-      ? `<p>아래 검색어를 눌러 뉴스를 찾아보세요. 새 창에서 열립니다. 찾은 기사의 제목과 주소를 생각 정리에 적으면 됩니다.</p>
+      ? `<p>아래 검색어를 눌러 뉴스를 찾아보세요. 새 창에서 열려요. 찾은 기사의 제목과 주소를 생각 정리에 적으면 됩니다.</p>
          <div class="ga-chips">${SEARCHES.map(q => `<a class="ee-button secondary" style="text-decoration:none" target="_blank" rel="noopener" href="https://search.naver.com/search.naver?where=news&query=${encodeURIComponent(q)}">${q} ↗</a>`).join('')}</div>
          <p class="ga-hint">기사를 고를 때: 날짜가 있는지, 누가 썼는지, 다른 언론도 같은 내용을 보도했는지 확인하세요.</p>`
       : `<ul>${c.pts.map(p => `<li>${p}</li>`).join('')}</ul>

@@ -410,3 +410,14 @@ html, body { margin: 0; min-height: 100%; background: var(--ee-paper); color-sch
 .game-accountability .ga-prac { margin: 0; padding-left: 0; list-style: none; }
 .game-accountability .ga-prac li::before { content: "◎ "; color: var(--ee-green); }
 .game-accountability .ga-prac li.no::before { content: "△ "; color: #b47f35; }
+
+/* 본문은 읽기 쉬운 일반 글꼴, 제목·역할 이름·버튼은 공통 팩 도트 글꼴 유지 */
+.game-accountability { --ga-body: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif; }
+.game-accountability p, .game-accountability li, .game-accountability small, .game-accountability dd,
+.game-accountability .ee-speech, .game-accountability .ga-hint, .game-accountability .ee-notice, .game-accountability .ee-success,
+.game-accountability .ga-mission, .game-accountability .ga-ref, .game-accountability .ga-bub, .game-accountability .ga-fmsg,
+.game-accountability .ga-dcard, .game-accountability .ee-choice small, .game-accountability input, .game-accountability textarea,
+.game-accountability .ga-note, .game-accountability .ga-ad, .game-accountability .ga-screen, .game-accountability .ga-lab .ee-badge,
+.game-accountability .ga-path .ee-badge, .game-accountability label { font-family: var(--ga-body); letter-spacing: -0.01em; }
+.game-accountability .ee-speech .ee-speaker, .game-accountability .ga-eyebrow, .game-accountability .ee-notice > b:first-child, .game-accountability .ga-ref b { font-family: var(--ee-font); }
+.game-accountability p, .game-accountability .ee-speech { line-height: 1.6; }

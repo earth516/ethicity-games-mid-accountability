@@ -381,15 +381,18 @@
         [S.ad === 'approve', '"버섯 걱정 끝" 광고를 승인했다', '과장 광고 수정을 요청했다'],
         [S.warn === 'bottom', '경고문을 화면 맨 아래에 작게 두었다', '경고문을 결과 바로 위에 크게 두었다']
       ],
-      user: [
-        [appResult() === 'edible' && nShots() < 3, `사진을 ${nShots()}장만 찍었다`, nShots() >= 3 ? '갓·주름·밑동을 모두 찍었다' : `사진 ${nShots()}장을 찍었다`],
-        [appResult() === 'edible' && S.share === 'plain', '"식용이래!"만 단톡방에 올렸다', S.share === 'care' ? '주의 문구와 함께 단톡방에 알렸다' : S.share === 'plain' ? '판별 결과를 단톡방에 알렸다' : '단톡방에 올리지 않았다'],
-        [!!S.ate, '확인 없이 따서 먹었다', S.userChoice === 'check' ? '선생님께 확인했다' : '버섯을 두고 갔다'],
-        [S.report === 'no', '앱 오류를 알고도 신고하지 않았다', S.report === 'yes' ? '앱 오류를 개발팀에 신고했다' : '앱이 틀리지 않아 신고할 일이 없었다']
-      ]
+      user: [[!!S.ate, '확인 없이 따서 먹었다', S.userChoice === 'check' ? '선생님께 확인했다' : '버섯을 두고 갔다']]
     };
   }
   const riskCount = k => risks()[k].filter(x => x[0]).length;
+  /* 사용자의 실천: 책임 계산에는 넣지 않고 따로 보여 줌 (사용자 쪽 항목이 많아 책임이 부풀지 않도록) */
+  const practice = () => {
+    const ed = appResult() === 'edible', P = [];
+    P.push([nShots() >= 3, nShots() >= 3 ? '갓·주름·밑동을 모두 찍었다' : `사진을 ${nShots()}장만 찍었다`]);
+    if (S.share) P.push([!(ed && S.share === 'plain'), { plain: '"식용이래!" 결과만 단톡방에 올렸다', care: '주의 문구와 함께 단톡방에 알렸다', none: '단톡방에 올리지 않았다' }[S.share]]);
+    if (S.report) P.push([S.report === 'yes', S.report === 'yes' ? '앱 오류를 개발팀에 신고했다' : '앱 오류를 신고하지 않았다']);
+    return P;
+  };
 
   /* ---------- mushroom drawing (게임 전용 자료 · 픽셀아트, 학습용 단순화) ---------- */
   const SPECIES = {
@@ -640,6 +643,7 @@
           <p>AI의 확신이 이 값보다 낮으면 이름 대신 <b>"판별 불가"</b>를 보여 줍니다. 슬라이더를 움직여 미리보기를 살펴보세요.</p>
           <div class="ga-row"><label for="ga-th"><b>신뢰도 기준</b></label><span class="ga-spacer"></span><span class="ga-coins" id="ga-thv">${S.th}%</span></div>
           <input type="range" id="ga-th" min="50" max="95" step="5" value="${S.th}">
+          <p class="ga-hint" style="margin:0">아래 12칸은 <b>테스트 사진 12장에 AI가 매긴 확신도</b>예요. 기준보다 낮은 칸은 사용자에게 이름 대신 "판별 불가"로 보여요.</p>
           <div class="ga-preview" id="ga-pv"></div>
           <div class="ga-row"><span class="ga-hint">예상 앱 별점</span><span class="ga-stars" id="ga-st"></span><span class="ga-hint" id="ga-stx"></span></div>
           ${navBtns(true, '다음 ▶', false)}`;
@@ -946,7 +950,7 @@
       <div class="ga-legend"><span><i></i>내가 나눈 책임</span>${showRec ? '<span><i class="rec"></i>기록에 남은 위험 쪽 선택</span>' : ''}${S.report === 'yes' ? '<span><i class="rep"></i>사용자 → 개발자 오류 신고</span>' : ''}</div>`;
   }
   function sResult() {
-    S.opened = false;
+    S.opened = false; let moved = false;
     const head = S.ate
       ? `${banner('nurse', [['user', 560, 600, 'down', .85], ['teacher', 700, 600, 'left']], 'short', '보건실')}<div class="ee-notice"><b>소식</b> · 학교 화단에서 딴 야생 버섯을 먹은 고등학생이 복통으로 병원에 옮겨졌어요. 다행히 회복 중이에요.</div>`
       : `${banner('courtyard', [['user', 560, 600], ['friend', 650, 610], ['teacher', 740, 600, 'left']], 'short', '학교 화단')}<div class="ee-success"><b>조사 소식</b> · 오늘 생물 다양성 조사는 무사히 끝났어요. <button type="button" class="ee-button secondary" id="ga-other" style="margin-left:8px">그날의 다른 가능성 보기</button><span id="ga-otherbox" hidden> ${appResult() === 'edible' ? '앱 말만 믿고 따 가서 먹었다면' : '만약 앱이 "식용 가능 87%"라고 답했고, 확인 없이 따 가서 먹었다면'} 같은 날 사고가 났을 수 있어요. 결과는 네 사람의 선택이 어떻게 쌓이느냐에 달려 있었어요.</span></div>`;
@@ -968,14 +972,14 @@
     if ($('#ga-other')) $('#ga-other').onclick = () => { $('#ga-otherbox').hidden = false; $('#ga-other').remove(); snd('paper'); };
     const refresh = () => {
       const sum = ROLE_KEYS.reduce((a, k) => a + S.my[k], 0);
-      $('#ga-sum').textContent = `합계 ${sum}%` + (sum === 100 ? ' ✓' : ' (100%가 되도록 맞춰 주세요)');
-      $('#ga-sum').className = 'ga-sum ' + (sum === 100 ? 'ok' : 'bad');
+      $('#ga-sum').textContent = !moved ? '슬라이더를 움직여 내 생각대로 나눠 보세요' : `합계 ${sum}%` + (sum === 100 ? ' ✓' : ' (100%가 되도록 맞춰 주세요)');
+      $('#ga-sum').className = 'ga-sum ' + (moved && sum === 100 ? 'ok' : 'bad');
       ROLE_KEYS.forEach(k => $('#ga-p-' + k).textContent = S.my[k] + '%');
       $('#ga-map').innerHTML = mapHTML(S.opened, justOpened); justOpened = false; paint($('#ga-map'));
-      $('#ga-open').disabled = !(sum === 100 && S.reason);
+      $('#ga-open').disabled = !(moved && sum === 100 && S.reason);
     };
-    ROLE_KEYS.forEach(k => $('#ga-r-' + k).oninput = e => { S.my[k] = +e.target.value; refresh(); });
-    $('#ga-even').onclick = () => { ROLE_KEYS.forEach(k => { S.my[k] = 25; $('#ga-r-' + k).value = 25; }); snd('tap'); refresh(); };
+    ROLE_KEYS.forEach(k => $('#ga-r-' + k).oninput = e => { S.my[k] = +e.target.value; moved = true; refresh(); });
+    $('#ga-even').onclick = () => { ROLE_KEYS.forEach(k => { S.my[k] = 25; $('#ga-r-' + k).value = 25; }); moved = true; snd('tap'); refresh(); };
     pick('.ga-reason .ee-choice', (v, b) => { S.reason = b.textContent; refresh(); });
     let justOpened = false;
     $('#ga-open').onclick = () => { S.opened = true; justOpened = true; snd('door'); refresh(); records(); };
@@ -988,7 +992,7 @@
       <p>▲는 위험 쪽으로 기운 선택, ●는 안전 쪽 선택입니다. 맵의 붉은 실선 굵기가 기록에 남은 위험 쪽 선택의 비율이에요.${total ? '' : ' 이번 탐험에서는 위험 쪽 선택이 없었어요.'}</p>
       ${blind ? '<div class="ee-notice"><b>판별 기록이 없어요.</b> 개발 단계에서 기록을 저장하지 않아서, 앱이 실제로 무엇이라고 표시했는지 증명할 수 없어요. 앱 회사는 "사용자가 결과를 잘못 읽었을 수 있다"고 말하고, 책임은 마지막 사람에게 몰려요. 맵에서 사용자를 뺀 세 줄이 "기록 없음"으로 보이는 이유예요.</div>' : ''}
       <div class="ga-recs">${ROLE_KEYS.map(k => `<div class="ga-rec">${face(k)}<div><b>${CAST[k].role} · ${CAST[k].name}</b> <span class="ga-hint">내가 준 책임 ${S.my[k]}% · 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}</span>
-        <ul>${R[k].map(([bad, b, g]) => `<li class="${bad ? 'risk' : 'safe'}">${bad ? b : g}</li>`).join('')}${k === 'developer' && S.tabOpened ? '<li class="risk">종별 정확도를 열어 보았다 (알고 있었다)</li>' : ''}</ul></div></div>`).join('')}</div>
+        <ul>${R[k].map(([bad, b, g]) => `<li class="${bad ? 'risk' : 'safe'}">${bad ? b : g}</li>`).join('')}${k === 'developer' && S.tabOpened ? '<li class="risk">종별 정확도를 열어 보았다 (알고 있었다)</li>' : ''}</ul>${k === 'user' ? `<p class="ga-hint" style="margin:6px 0 2px">사용자로서의 실천 (책임 비율에는 넣지 않음)</p><ul class="ga-prac">${practice().map(([ok, t]) => `<li class="${ok ? 'ok' : 'no'}">${t}</li>`).join('')}</ul>` : ''}</div></div>`).join('')}</div>
       <div class="ga-nav"><button class="ee-button" id="ga-end" type="button">엔딩 보기 ▶</button></div></section>`;
     paint($('#ga-records'));
     $('#ga-records').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' });
@@ -1016,7 +1020,10 @@
   }
   function sEnding() {
     const e = ending(), E = ENDINGS[e];
-    const knew = S.tabOpened && (e === 'E3' || e === 'E4') ? '<p><b>그리고 개발자 자리에서 당신은 독버섯 인식률이 낮다는 것을 알고 있었어요.</b> 알고도 출시한 것과 모르고 출시한 것의 책임은 같을까요?</p>' : '';
+    const tox = accInfo().tox;
+    const knew = (e === 'E3' || e === 'E4' || e === 'E2') ? (S.tabOpened
+      ? `<p><b>그리고 개발자 자리에서 당신은 독버섯 인식률이 ${tox}%라는 것을 알고 있었어요.</b> 알고도 출시한 것과 모르고 출시한 것의 책임은 같을까요?</p>`
+      : `<p class="ee-notice"><b>놓친 단서</b> · 개발자 화면의 [종별 정확도 보기]를 눌렀다면, 전체 정확도 ${accInfo().overall}%와 달리 <b>개나리광대버섯 인식률은 ${tox}%</b>라는 걸 알 수 있었어요. 확인하지 않은 것도 책임일까요?</p>`) : '';
     stage.innerHTML = `<div class="ga-stack">${banner('classroom', [['guide', 640, 600]], 'short', '장면 7 · 엔딩')}
       <div class="ga-ending">
         <div class="ee-panel ga-code"><b>${e}</b><span>${E.t}</span></div>
@@ -1169,9 +1176,10 @@
       B.push(['sub', `${CAST[k].role} · ${CAST[k].name}`]);
       const lines = R[k].map(([bad, b, g]) => (bad ? '▲ ' + b : '● ' + g));
       if (k === 'developer' && S.tabOpened) lines.push('▲ 종별 정확도를 열어 보았다 (알고 있었다)');
+      if (k === 'user') practice().forEach(([ok, t]) => lines.push((ok ? '◎ ' : '△ ') + t + ' (실천)'));
       B.push(['body', lines.join('\n')]);
     });
-    B.push(['note', '▲ 위험 쪽으로 기운 선택   ● 안전 쪽 선택']);
+    B.push(['note', '▲ 위험 쪽으로 기운 선택   ● 안전 쪽 선택   ◎/△ 사용자의 실천(책임 비율에는 넣지 않음)']);
     B.push(['h', '3. 책임 나누기']);
     B.push(['body', ROLE_KEYS.map(k => `${CAST[k].role}: 내가 준 책임 ${S.my[k]}%  /  게임 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}`).join('\n')]);
     B.push(['body', '가장 큰 책임을 준 이유: ' + (S.reason || '(선택하지 않음)')]);

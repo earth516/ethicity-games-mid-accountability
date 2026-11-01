@@ -406,3 +406,7 @@ html, body { margin: 0; min-height: 100%; background: var(--ee-paper); color-sch
   .game-accountability * { animation: none !important; transition: none !important; }
 }
 .game-accountability.ga-calm * { animation: none !important; transition: none !important; }
+
+.game-accountability .ga-prac { margin: 0; padding-left: 0; list-style: none; }
+.game-accountability .ga-prac li::before { content: "◎ "; color: var(--ee-green); }
+.game-accountability .ga-prac li.no::before { content: "△ "; color: #b47f35; }

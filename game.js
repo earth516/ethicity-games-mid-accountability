@@ -34,7 +34,9 @@
   const ROLE_KEYS = ['data', 'developer', 'deployer', 'user'];
 
   let A = null;
-  const settings = Object.assign({ sound: false, calm: false, music: false }, store.get('settings', {}));
+  const settings = Object.assign({ sound: false, calm: false, music: true }, store.get('settings', {}));
+  /* 배경음악 기본 켜짐 (예전에 저장된 '꺼짐' 설정은 한 번 켜짐으로 바꿈). 브라우저 규칙상 첫 터치 때 재생 시작 */
+  if (!settings.musicOn1) { settings.music = true; settings.musicOn1 = 1; }
   const reduced = () => settings.calm || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const snd = id => { if (A && settings.sound) A.playSound(id); };
 
@@ -43,7 +45,7 @@
     tabOpened: false, launch: null, th: 60, log: null,
     ad: null, warn: null, age: null, ate: null, userChoice: null,
     shots: [], share: null, report: null, pushed: false, obs: {},
-    my: { data: 25, developer: 25, deployer: 25, user: 25 }, reason: null, opened: false,
+    my: { data: 0, developer: 0, deployer: 0, user: 0 }, reason: null, opened: false, sub: null, found: [], partsSeen: false,
     caseId: null, refl: {}, player: null
   });
   let S = blank();
@@ -259,10 +261,18 @@
       else { Music.off(); toast('배경음악을 껐어요'); }
     };
     /* 지난번에 켜 두었다면, 브라우저 규칙상 첫 터치 때 다시 켭니다 */
-    if (settings.music) document.addEventListener('pointerdown', () => { if (settings.music && !Music.playing) { Music.set(musicFor(S.scene)); Music.on(); } }, { once: true });
+    if (settings.music) {
+      const kick = () => { document.removeEventListener('pointerdown', kick); document.removeEventListener('keydown', kick);
+        if (settings.music && !Music.playing) { Music.set(musicFor(S.scene)); Music.on(); toast('배경음악이 켜졌어요 · 위쪽 ♪ 버튼으로 끌 수 있어요'); } };
+      document.addEventListener('pointerdown', kick); document.addEventListener('keydown', kick);
+    }
     paint($('.ga-hud')); sync();
   }
-  function go(n) {
+  /* 장면 안의 단계까지 저장 (창을 닫았다 열어도 하던 단계부터) */
+  const mark = i => { S.sub = { sc: S.scene, i }; if (S.scene >= 2 && S.scene <= 8) store.set('progress', S); };
+  const subStart = (d = 0) => (S.sub && S.sub.sc === S.scene ? S.sub.i : d);
+  function go(n, keep) {
+    if (!keep) S.sub = null;
     S.scene = n; hud(); window.scrollTo({ top: 0 });
     post({ type: 'ethicity:progress', gameId: GAME_ID, current: n, total: TOTAL });
     if (n >= 2 && n <= 8) store.set('progress', S); else if (n === 9) store.del('progress');
@@ -325,12 +335,12 @@
   ];
   /* 이름표 검수 카드 6장 (사진은 AI로 만든 이미지). 2장이 틀린 이름표 */
   const LABELS = [
-    { img: 'images/label-egg-1.jpg', tag: '노란달걀버섯 · 식용', right: true },
-    { img: 'images/cam-mushroom.jpg', tag: '노란달걀버섯 · 식용', right: false },
-    { img: 'images/label-virosa.jpg', tag: '독우산광대버섯 · 독', right: true },
-    { img: 'images/label-parasol.jpg', tag: '큰갓버섯 · 식용', right: true },
-    { img: 'images/label-cluster.jpg', tag: '개암버섯 · 식용', right: true },
-    { img: 'images/label-egg-2.jpg', tag: '개나리광대버섯 · 독', right: false }
+    { img: 'images/label-egg-1.jpg', tag: '노란달걀버섯 · 식용', right: true, why: '갓·주름·대가 모두 노란색' },
+    { img: 'images/cam-mushroom.jpg', tag: '노란달걀버섯 · 식용', right: false, why: '주름·대가 흰색 → 개나리광대버섯(맹독)' },
+    { img: 'images/label-virosa.jpg', tag: '독우산광대버섯 · 독', right: true, why: '전체가 흰색, 밑동 주머니' },
+    { img: 'images/label-parasol.jpg', tag: '큰갓버섯 · 식용', right: true, why: '갈색 비늘 갓, 무늬 있는 대' },
+    { img: 'images/label-cluster.jpg', tag: '개암버섯 · 식용', right: true, why: '나무에 다발, 붉은 갈색 갓' },
+    { img: 'images/label-egg-2.jpg', tag: '개나리광대버섯 · 독', right: false, why: '주름·대가 노란색 → 노란달걀버섯(식용)' }
   ];
   const hasDomestic = () => S.cart.includes('kr');
   const labelRight = () => LABELS.filter((l, i) => S.labels[i] !== undefined && S.labels[i] === l.right).length;
@@ -494,7 +504,7 @@
     $('#ga-start').onclick = () => { snd('door'); login(); };
     if ($('#ga-resume')) $('#ga-resume').onclick = () => {
       const v = store.get('progress', null); if (!v) return;
-      S = Object.assign(blank(), v); snd('door'); go(S.scene);
+      S = Object.assign(blank(), v); snd('door'); go(S.scene, true);
     };
   }
   function resumeBox() {
@@ -562,9 +572,10 @@
   const DATA_STEPS = ['사진 고르기', '이름표 검수'];
   function sData() {
     stage.innerHTML = `<div class="ga-scene">${who('data', '예산 100코인으로 AI가 공부할 버섯 사진을 고르고, 이름표가 맞는지 검수해요.', 'library', [['data', 640, 650, 'down', 1.8]], '장면 2 · 도서관 자료실')}<div id="ga-step"></div></div>`;
-    paint(stage); stepCart();
+    paint(stage); subStart() >= 1 ? stepLabels() : stepCart();
   }
   function stepCart() {
+    mark(0); new Image().src = 'images/parts-guide.png';
     showStep(`<section class="ee-panel ga-stack">${stepBar(DATA_STEPS, 0)}
         <h2>어떤 사진으로 AI를 가르칠까요?</h2>
         <p>예산은 <b>100코인</b>이에요. 카드를 끌어 장바구니에 넣거나 눌러서 담으세요. 사진이 많을수록 AI가 많이 배우지만, 어떤 사진인지도 중요해요.</p>
@@ -598,11 +609,11 @@
     $('#ga-next').onclick = () => { snd('tap'); stepLabels(); };
   }
   function stepLabels() {
-    S.labels = {}; S.labelSkipped = false;
+    mark(1); S.labels = {}; S.labelSkipped = false;
     const feat = { egg: '갓·주름·대·턱받이 모두 <b>노란색</b>, 밑동에 흰 주머니', forsythia: '갓은 노랑, 주름·턱받이는 <b>흰색</b>, 밑동에 흰 주머니', virosa: '전체가 <b>흰색</b>, 턱받이와 밑동 주머니가 있음', parasol: '큰 갓에 <b>갈색 비늘</b>, 대에 뱀 껍질 무늬 · 닮은 독버섯 있음', cluster: '썩은 나무에 <b>다발</b>로 남, 붉은 갈색 갓 · 닮은 독버섯 있음' };
     showStep(`<section class="ee-panel ga-stack">${stepBar(DATA_STEPS, 1)}
           <h2>이름표, 정말 맞을까요?</h2>
-          <p class="ga-oneline">도감 카드와 비교해 <b>맞음 / 틀림</b>을 골라 보세요. 틀린 이름표로 배우면 AI도 틀려요.</p>
+          <p class="ga-oneline">도감 카드와 비교해 <b>맞음 / 틀림</b>을 골라 보세요. 틀린 이름표로 배우면 AI도 틀려요. <button type="button" class="ga-linkbtn" id="ga-parts">버섯 부위 보기</button></p>
           <div class="ga-refs compact ga-refs-photo">${['egg', 'forsythia', 'virosa', 'parasol', 'cluster'].map(k => `<div class="ee-notice ga-ref"><img class="ga-refimg" src="images/cut-${k}.png" alt="${SPECIES[k].name} 사진" draggable="false"><div><b>${SPECIES[k].name} ${SPECIES[k].edible ? '(식용)' : '(맹독)'}</b>${feat[k]}</div></div>`).join('')}</div>
           <div class="ga-labels ga-tight-labels">${LABELS.map((l, i) => `<div class="ga-lab"><img src="${l.img}" alt="버섯 사진 ${i + 1}" loading="lazy" draggable="false"><span class="ee-badge">${l.tag}</span>
             <div class="ga-yn"><button type="button" class="ee-choice" data-i="${i}" data-v="1" aria-pressed="false">맞음</button><button type="button" class="ee-choice" data-i="${i}" data-v="0" aria-pressed="false">틀림</button></div></div>`).join('')}</div>
@@ -614,9 +625,24 @@
       $$(`.ga-yn .ee-choice[data-i="${b.dataset.i}"]`).forEach(x => x.setAttribute('aria-pressed', x === b));
       $('#ga-next').disabled = Object.keys(S.labels).length < LABELS.length;
     });
+    $('#ga-parts').onclick = () => partsGuide();
+    if (!S.partsSeen) partsGuide();
     $('#ga-prev').onclick = () => { snd('tap'); stepCart(); };
     $('#ga-skip').onclick = () => { S.labelSkipped = true; S.labels = {}; snd('tap'); toast('검수를 건너뛰고 다음 단계로 넘어가요.'); setTimeout(() => go(3), 600); };
-    $('#ga-next').onclick = () => { snd('paper'); toast(`이름표 ${LABELS.length}장을 모두 살펴봤어요.`); setTimeout(() => go(3), 600); };
+    $('#ga-next').onclick = () => { snd('paper'); labelResult(); };
+  }
+  function labelResult() {
+    const n = labelRight(), clean = labelsClean(), club = S.cart.includes('club');
+    showStep(`<section class="ee-panel ga-stack">${stepBar(DATA_STEPS, 1)}
+      <h2>검수 결과 · ${LABELS.length}장 중 ${n}장 맞혔어요</h2>
+      <div class="ga-labels ga-tight-labels">${LABELS.map((l, i) => { const mine = S.labels[i], ok = mine === l.right;
+        return `<div class="ga-lab ${ok ? 'ok' : 'no'}"><img src="${l.img}" alt="버섯 사진 ${i + 1}" draggable="false"><span class="ee-badge">${l.tag}</span>
+          <span class="ga-verd">${ok ? '✓ 맞혔어요' : '✗ 다시 보기'}</span><small>이름표 ${l.right ? '맞음' : '틀림'} · ${l.why}</small></div>`; }).join('')}</div>
+      <div class="${clean ? 'ee-success' : 'ee-notice'}">${clean
+        ? `<b>깨끗한 데이터</b> · 틀린 이름표 두 장을 걸러 냈어요. AI가 노란 두 버섯을 덜 헷갈리게 배워요.${club ? ' 동호회 사진의 틀린 이름표도 함께 걸러졌어요.' : ''}`
+        : `<b>틀린 이름표가 남았어요</b> · AI는 이름표를 그대로 믿고 배워요. 노란 두 버섯을 헷갈릴 수 있어요.${club ? ' 동호회 사진의 틀린 이름표도 그대로 들어가요.' : ''}`} 이 결과는 다음 장면의 AI 시험 결과에 반영돼요.</div>
+      ${navBtns(false, '개발자에게 넘기기 ▶', false)}</section>`);
+    $('#ga-next').onclick = () => { snd('door'); go(3); };
   }
 
   /* ---------- 3 개발자 ---------- */
@@ -624,9 +650,10 @@
   const DEV_STEPS = ['결과 보기', '출시 시기', '신뢰도 기준', '판별 기록'];
   function sDev() {
     stage.innerHTML = `<div class="ga-scene">${who('developer', 'AI를 시험해 보고, 출시 시기와 신뢰도 기준, 기록 저장 여부를 정해요.', 'ai_lab', [['developer', 640, 650, 'down', 1.8]], '장면 3 · AI 실습실')}<div id="ga-step"></div></div>`;
-    paint(stage); devStep(0);
+    paint(stage); devStep(subStart());
   }
   function devStep(i) {
+    mark(i);
     const { overall: acc, tox, note } = accInfo();
     const recap = `<div class="ee-notice ga-msg">${icon('warning')}<p><b>팀장 메시지</b> · 경쟁 앱이 다음 주에 나온대요. 오늘 꼭 올려 주세요! ${acc}%면 충분하잖아요?</p></div>`;
     let body = '';
@@ -686,12 +713,14 @@
 
   /* ---------- 4 배포자 ---------- */
   const DEP_STEPS = ['광고 문구', '경고문 위치', '연령 등급'];
+  const dlEst = () => 10 * (S.ad === 'revise' ? .8 : 1) * (S.warn === 'top' ? .85 : 1);
   function sDeploy() {
     const AD = `"정확도 ${accInfo().overall}%! 이제 버섯 걱정 끝"`, AD2 = '사진으로 버섯 이름을 알아보는 학습용 앱';
     stage.innerHTML = `<div class="ga-scene">${who('deployer', '앱마켓 심사 담당이에요. 사용자에게 앱이 어떻게 보일지 정해요.', 'classroom', [['deployer', 640, 650, 'down', 1.8]], '장면 4 · 교실 심사 회의')}
       <div class="ga-editor"><div id="ga-step"></div>
         <div class="ga-phone" aria-label="앱 상세 화면 미리보기"><div class="ga-screen">
           <div class="ga-apphead"><div class="ga-appicon">${mush('egg')}</div><div><b style="font-size:17px">버섯도감 AI</b><br><span class="ga-hint">교육 · 생활</span></div></div>
+          <div class="ga-dl"><span class="ga-hint">예상 월 다운로드</span><b id="ga-dlv"></b><div class="ga-track"><div class="ga-fill" id="ga-dlf"></div></div><small id="ga-dlx"></small></div>
           <div id="ga-adline" class="ga-ad">${AD}</div>
           <button type="button" class="ga-slot" id="ga-slotTop" data-v="top">결과 바로 위 (크게)</button>
           <div style="border:2px solid #b3c19c;border-radius:4px;padding:8px;text-align:center"><div style="max-width:64px;margin:0 auto">${mush('egg')}</div><b style="color:var(--ee-green)">노란달걀버섯</b><br><span class="ga-hint">판별 결과 예시</span></div>
@@ -702,6 +731,12 @@
     paint(stage);
     const phone = () => {
       $('#ga-adline').textContent = S.ad === 'revise' ? AD2 : AD;
+      const dl = dlEst(), msg = [];
+      if (S.ad === 'revise') msg.push('광고가 밋밋해 −20%');
+      if (S.warn === 'top') msg.push('큰 경고문에 설치를 망설여 −15%');
+      $('#ga-dlv').textContent = dl.toFixed(1) + '만 건';
+      $('#ga-dlf').style.width = (dl / 10 * 100) + '%'; $('#ga-dlf').classList.toggle('warn', dl < 8.5);
+      $('#ga-dlx').textContent = msg.length ? '팀장: ' + msg.join(', ') + '이래요' : '팀장: 이대로면 목표 달성!';
       $$('.ga-slot').forEach(s => {
         const on = s.dataset.v === S.warn;
         s.className = 'ga-slot' + (on ? ' filled ' + (S.warn === 'top' ? 'large' : 'small') : '');
@@ -724,6 +759,7 @@
             <div class="ga-seg">${['전체', '12세', '15세'].map(a => `<button type="button" class="ee-choice ga-age" data-v="${a}" ${pressed(S.age, a)}>${a}</button>`).join('')}</div>
             <p class="ga-hint">연령 등급은 결과에 영향을 주지 않아요. 토론할 때 이야기해 봐요.</p>
             ${navBtns(true, '심사 완료, 출시 ▶', !S.age)}`;
+      mark(i);
       showStep(`<section class="ee-panel ga-stack">${stepBar(DEP_STEPS, i)}${body}</section>`);
       if (i === 0) pick('.ga-adc', v => { S.ad = v; phone(); $('#ga-next').disabled = false; });
       if (i === 1 && $('#ga-wchip')) draggable($('#ga-wchip'), { zones: () => $$('.ga-slot'), onDrop: z => place(z), onTap: () => toast('오른쪽 앱 화면의 자리를 눌러 경고문을 놓으세요') });
@@ -731,7 +767,7 @@
       if ($('#ga-prev')) $('#ga-prev').onclick = () => { snd('tap'); step(i - 1); };
       $('#ga-next').onclick = () => { if (i < 2) { snd('tap'); step(i + 1); } else { snd('door'); go(5); } };
     };
-    phone(); step(0);
+    phone(); step(subStart());
   }
 
   /* ---------- 장면 5-0 · 학교 마당 둘러보며 버섯 찾기 ---------- */
@@ -739,18 +775,18 @@
   const AI_NOTE = 'AI로 만든 이미지 · 실제 버섯 식별용이 아님';
   const SPOTS = [
     { name: '벤치 화단', img: 'images/find-1.jpg', items: [
-      { id: 'brown', kind: 'mush', box: [61.8, 40, 7, 10], label: '그루터기의 붉은 갈색 버섯 무리', msg: '그루터기에 붉은 갈색 버섯이 다발로 났어요. 데이터 수집 때 본 개암버섯이랑 닮았는데… 겉모습만으로는 확신 못 하겠어요.' },
-      { id: 'umbrella', kind: 'mush', box: [85.3, 61, 6.6, 14.6], label: '갈색 비늘 우산 버섯', msg: '갓에 갈색 비늘이 있는 우산 모양 버섯. 큰갓버섯이랑 닮았지만, 닮은 독버섯도 있대요.' },
-      { id: 'ladybug', kind: 'life', box: [30.8, 60.5, 3.6, 5.5], label: '무당벌레', msg: '꽃 덤불 잎 위에서 무당벌레를 찾았어요!' },
+      { id: 'brown', kind: 'mush', clue: '나무 그루터기 쪽', box: [61.8, 40, 7, 10], label: '그루터기의 붉은 갈색 버섯 무리', msg: '그루터기에 붉은 갈색 버섯이 다발로 났어요. 데이터 수집 때 본 개암버섯이랑 닮았는데… 겉모습만으로는 확신 못 하겠어요.' },
+      { id: 'umbrella', kind: 'mush', clue: '풀밭 오른쪽', box: [85.3, 61, 6.6, 14.6], label: '갈색 비늘 우산 버섯', msg: '갓에 갈색 비늘이 있는 우산 모양 버섯. 큰갓버섯이랑 닮았지만, 닮은 독버섯도 있대요.' },
+      { id: 'ladybug', kind: 'life', box: [30.8, 60.5, 3.6, 5.5], clue: '꽃 덤불 잎 위', label: '무당벌레', msg: '꽃 덤불 잎 위에서 무당벌레를 찾았어요!' },
       { id: 'rock', kind: 'thing', box: [54.2, 76.5, 11.8, 13], label: '돌', msg: '빗물에 젖은 돌이에요.' }] },
     { name: '벤치와 큰 나무', img: 'images/find-2.jpg', items: [
-      { id: 'yellow', kind: 'target', box: [48.5, 51.5, 7.5, 10], label: '노란 버섯', msg: '낙엽 더미 옆에 노란 버섯이 있어요!' },
-      { id: 'ants', kind: 'life', box: [16, 51, 19, 11], label: '개미', msg: '개미 행렬! 비 온 다음 날이라 바쁘게 움직여요.' },
+      { id: 'yellow', kind: 'target', clue: '낙엽 더미 근처', box: [48.5, 51.5, 7.5, 10], label: '노란 버섯', msg: '낙엽 더미 옆에 노란 버섯이 있어요!' },
+      { id: 'ants', kind: 'life', box: [16, 51, 19, 11], clue: '맨흙 위의 까만 줄', label: '개미', msg: '개미 행렬! 비 온 다음 날이라 바쁘게 움직여요.' },
       { id: 'acorn', kind: 'thing', box: [61.3, 75.8, 5, 7.5], label: '도토리', msg: '도토리예요. 근처 나무에서 떨어졌나 봐요.' }] },
     { name: '본관 앞 화단', img: 'images/find-3.jpg', items: [
-      { id: 'white', kind: 'mush', box: [12.8, 61.5, 4.8, 8], label: '흰 버섯', msg: '나무 그늘의 하얀 버섯. 독우산광대버섯이랑 닮았어요. 하얗다고 안전한 게 아니에요.' },
-      { id: 'moss', kind: 'life', box: [41, 52, 15, 18], label: '이끼', msg: '화단 벽돌 위에 이끼가 자라요.' },
-      { id: 'worm', kind: 'life', box: [56.5, 52, 12.5, 4.5], label: '지렁이', msg: '비 온 다음 날이라 지렁이가 길 위로 나왔어요.' }] }
+      { id: 'white', kind: 'mush', clue: '나무 그늘 아래', box: [12.8, 61.5, 4.8, 8], label: '흰 버섯', msg: '나무 그늘의 하얀 버섯. 독우산광대버섯이랑 닮았어요. 하얗다고 안전한 게 아니에요.' },
+      { id: 'moss', kind: 'life', box: [41, 52, 15, 18], clue: '벽돌 화단 위', label: '이끼', msg: '화단 벽돌 위에 이끼가 자라요.' },
+      { id: 'worm', kind: 'life', box: [56.5, 52, 12.5, 4.5], clue: '젖은 보도블록 위', label: '지렁이', msg: '비 온 다음 날이라 지렁이가 길 위로 나왔어요.' }] }
   ];
   const ITEMS = SPOTS.flatMap(sp => sp.items.map(it => Object.assign({ img: sp.img }, it)));
   /* 사진에서 물건 부분만 잘라 보여 주는 작은 그림 */
@@ -783,19 +819,35 @@
     const top = Math.max(...sc.map(x => x[1]));
     return { top, names: sc.filter(x => x[1] === top).map(x => x[0]) };
   };
+  /* 버섯 부위 안내 (튜토리얼) */
+  function partsGuide(onClose) {
+    new Image().src = 'images/parts-guide.png';
+    const P = [['갓', '버섯의 우산 부분', 10, 54], ['주름', '갓 아래 얇은 판들', 31, 12], ['턱받이', '대에 붙은 치마 모양', 43, 72], ['대', '갓을 받치는 기둥', 62, 30], ['밑동 주머니', '맨 아래 컵 모양 껍질', 90, 74]];
+    const box = document.createElement('div'); box.className = 'ga-obs'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '버섯 부위 알아보기');
+    box.innerHTML = `<div class="ee-panel ga-parts">
+      <div class="ga-stack" style="gap:8px"><span class="ga-eyebrow">잠깐! 버섯 부위 알아보기</span><h2 style="margin:0">버섯은 이렇게 생겼어요</h2>
+        <p style="margin:0">독버섯과 먹는 버섯은 <b>주름 색</b>, <b>턱받이</b>, <b>밑동 주머니</b>처럼 작은 차이로 구별해요. 이름표를 검수할 때 이 부위를 살펴보세요.</p>
+        <ul class="ga-partlist">${P.map(([n, d]) => `<li><b>${n}</b> ${d}</li>`).join('')}</ul>
+        <div class="ga-nav"><button class="ee-button" type="button" id="ga-partsok">알겠어요 ▶</button></div></div>
+      <div class="ga-partimg"><img src="images/parts-guide.png" alt="버섯 부위 그림">${P.map(([n, , y, x]) => `<span class="ga-ptag" style="top:${y}%;left:${x}%">${n}</span>`).join('')}<span class="ga-ainote">${AI_NOTE}</span></div>
+    </div>`;
+    root.appendChild(box); snd('paper');
+    $('#ga-partsok', box).onclick = () => { box.remove(); snd('tap'); S.partsSeen = true; onClose && onClose(); };
+  }
   function observe(it, onDone) {
     const a = {};
     const box = document.createElement('div'); box.className = 'ga-obs'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', '관찰 카드');
     box.innerHTML = `<div class="ee-panel ga-obscard">
       <div class="ga-obsimg"><img src="${OBS_IMG[it.id]}" alt="${esc(it.label)} 가까이 본 사진"><span class="ga-ainote">${AI_NOTE}</span></div>
       <div class="ga-stack ga-obsq"><span class="ga-eyebrow">관찰 카드 · ${esc(it.label)}</span>
-        <p style="margin:0">가까이 보고 특징을 골라 보세요. 장면 2의 도감과 비교해 줄게요.</p>
+        <p style="margin:0">가까이 보고 특징을 골라 보세요. 장면 2의 도감과 비교해 줄게요. <button type="button" class="ga-linkbtn" id="ga-obsparts">버섯 부위 보기</button></p>
         ${OBS_Q.map(([q, t, opts]) => `<div><b class="ga-obst">${t}</b><div class="ga-seg">${opts.map(o => `<button type="button" class="ee-choice ga-ob" data-q="${q}" data-v="${o}" aria-pressed="false">${o}</button>`).join('')}</div></div>`).join('')}
         <div id="ga-obsres"></div>
         <div class="ga-nav"><button class="ee-button secondary" type="button" id="ga-obsx">닫기</button><button class="ee-button" type="button" id="ga-obsok" disabled>도감과 비교하기</button></div>
       </div></div>`;
     root.appendChild(box); snd('paper');
     const ok = $('#ga-obsok', box);
+    $('#ga-obsparts', box).onclick = () => partsGuide();
     $$('.ga-ob', box).forEach(b => b.onclick = () => {
       a[b.dataset.q] = b.dataset.v; snd('tap');
       $$(`.ga-ob[data-q="${b.dataset.q}"]`, box).forEach(x => x.setAttribute('aria-pressed', x === b));
@@ -812,7 +864,8 @@
   }
   function findPhase(done) {
     SPOTS.forEach(sp => { const im = new Image(); im.src = sp.img; }); new Image().src = 'images/cam-mushroom.jpg';
-    const seen = new Set(); let spot = 0, hinted = false, lx = null, ly = null;
+    const seen = new Set(S.found || []), hintLv = {}; let spot = 0, hinted = false, lx = null, ly = null;
+    mark(-1);
     const ed = $('.ga-editor'); ed.classList.add('ga-wide');
     const itemHTML = it => {
       const got = seen.has(it.id), [l, t, w, h] = it.box;
@@ -821,23 +874,31 @@
     };
     const note = () => {
       const m = MUSH_IDS.filter(i => seen.has(i)).length;
-      const life = ITEMS.filter(i => i.kind === 'life');
+      const life = SPOTS[spot].items.filter(i => i.kind === 'life');
       return `<div class="ga-note"><b>조사 노트</b>
         <span class="ga-nslot">버섯 ${m}/4 ${MUSH_IDS.map(i => `<i class="${seen.has(i) ? 'on' : ''}" title="${seen.has(i) ? esc(ITEMS.find(x => x.id === i).label) : ''}">${seen.has(i) ? photoCrop(ITEMS.find(x => x.id === i)) : '?'}</i>`).join('')}</span>
-        <span class="ga-nslot">다른 생물 ${life.map(i => `<em class="${seen.has(i.id) ? 'on' : ''}">${seen.has(i.id) ? i.label : '?'}</em>`).join('')}</span></div>`;
+        <span class="ga-nslot">이 장소의 다른 생물 ${life.map(i => `<em class="${seen.has(i.id) ? 'on' : ''}">${seen.has(i.id) ? i.label : '?'}</em>`).join('')}</span></div>`;
+    };
+    const countable = it => it.kind !== 'thing';
+    const spotCount = j => { const its = SPOTS[j].items.filter(countable); return [its.filter(i => seen.has(i.id)).length, its.length]; };
+    const spotDone = j => { const [f, t] = spotCount(j); return f === t; };
+    const nextSpotBtn = () => {
+      if (!spotDone(spot)) return '';
+      const n = [1, 2, 0].map(d => (spot + d) % 3).find(j => !spotDone(j));
+      return n === undefined ? '' : `<button class="ee-button secondary" id="ga-nextspot" data-j="${n}" type="button">다음 장소: ${SPOTS[n].name} ▶</button>`;
     };
     let last = null;
     const say = (who, text, expr = 'neutral') => { last = [who, text, expr]; $('#ga-fmsg').innerHTML = `${face(who, expr)}<p><b>${who === 'friend' ? '다온' : esc(nick())}</b> ${text}</p>`; paint($('#ga-fmsg')); };
     const render = () => {
       const S0 = SPOTS[spot];
       showStep(`<section class="ee-panel ga-stack ga-tight">${stepBar(USER_STEPS.slice(0, 5), 0)}
-        <div class="ga-row"><h2 style="margin-right:auto">학교 마당을 둘러보며 버섯을 찾아보세요</h2>
-        <div class="ga-spots">${SPOTS.map((s, j) => `<button type="button" class="ga-spot ${j === spot ? 'now' : ''}" data-j="${j}">${j + 1}. ${s.name}</button>`).join('')}</div></div>
+        <div class="ga-row"><h2 style="margin-right:auto">학교 마당에서 버섯과 생물을 찾아보세요</h2>
+        <div class="ga-spots"><button type="button" class="ga-spot ga-hintbtn" id="ga-hintbtn">🔍 힌트</button>${SPOTS.map((s, j) => { const [f, t] = spotCount(j); return `<button type="button" class="ga-spot ${j === spot ? 'now' : ''} ${f === t ? 'done' : ''}" data-j="${j}">${j + 1}. ${s.name} <small>${f === t ? '✓' : f + '/' + t}</small></button>`; }).join('')}</div></div>
         <div class="ga-find" id="ga-find"><img class="ga-findbg" src="${S0.img}" alt="${S0.name} 사진" draggable="false"><span class="ga-ainote">${AI_NOTE}</span>
           <div class="ga-dark" id="ga-dark" aria-hidden="true"></div><div class="ga-lens" id="ga-lens" aria-hidden="true" style="background-image:url('${S0.img}')"></div>
           ${S0.items.map(itemHTML).join('')}
           <div class="ga-fmsg" id="ga-fmsg" role="status"></div></div>
-        <div class="ga-row">${note()}${seen.has('yellow') ? '<button class="ee-button" id="ga-next" type="button">노란 버섯 찍기 ▶</button>' : ''}</div></section>`);
+        <div class="ga-row">${note()}${nextSpotBtn()}${seen.has('yellow') ? '<button class="ee-button" id="ga-next" type="button">노란 버섯 찍기 ▶</button>' : ''}</div></section>`);
       if (last) say(...last);
       const fb = $('#ga-find'), lens = $('#ga-lens'), dark = $('#ga-dark');
       const aim = (x, y) => {
@@ -853,7 +914,22 @@
       fb.addEventListener('pointerdown', fromEv);
       $$('.ga-fi').forEach(b => b.addEventListener('focus', () => { const r = fb.getBoundingClientRect(), q = b.getBoundingClientRect(); aim(q.left - r.left + q.width / 2, q.top - r.top + q.height / 2); }));
       requestAnimationFrame(() => { const r = fb.getBoundingClientRect(); aim(lx == null ? r.width * .5 : Math.min(lx, r.width), ly == null ? r.height * .6 : Math.min(ly, r.height)); });
-      $$('.ga-spot').forEach(b => b.onclick = () => { spot = +b.dataset.j; lx = ly = null; snd('door'); render(); });
+      const goSpot = j => { spot = j; lx = ly = null; snd('door'); render(); };
+      $$('.ga-spot').forEach(b => b.onclick = () => goSpot(+b.dataset.j));
+      $('#ga-hintbtn').onclick = () => {
+        const left = SPOTS[spot].items.filter(i => countable(i) && !seen.has(i.id));
+        if (!left.length) { say('friend', '여기는 다 찾았어! 다른 장소로 가 보자.', 'happy'); return; }
+        const it = left[0]; hintLv[it.id] = (hintLv[it.id] || 0) + 1; snd('tap');
+        const nM = left.filter(i => i.kind !== 'life').length, nL = left.length - nM;
+        if (hintLv[it.id] === 1) {
+          say('friend', `여기엔 아직 ${[nM ? `버섯 ${nM}개` : '', nL ? `생물 ${nL}개` : ''].filter(Boolean).join(', ')}가 남았어. <b>${it.clue}</b>${((it.clue.charCodeAt(it.clue.length - 1) - 0xac00) % 28) ? '을' : '를'} 살펴볼래?`, 'explaining');
+        } else {
+          const r = fb.getBoundingClientRect(), [l, t, w, h] = it.box, ox = (Math.random() < .5 ? -1 : 1) * 7, oy = (Math.random() < .5 ? -1 : 1) * 6;
+          aim((l + w / 2 + ox) / 100 * r.width, (t + h / 2 + oy) / 100 * r.height);
+          say('friend', '돋보기 근처 어딘가에 있어. 천천히 둘러봐!', 'explaining');
+        }
+      };
+      if ($('#ga-nextspot')) $('#ga-nextspot').onclick = () => goSpot(+$('#ga-nextspot').dataset.j);
       $$('.ga-fi').forEach(b => b.onclick = () => tap(b.dataset.id, b));
       $('.ga-findbg').onclick = e => { const r = $('#ga-find').getBoundingClientRect(), d = document.createElement('span'); d.className = 'ga-ripple'; d.style.left = (e.clientX - r.left) + 'px'; d.style.top = (e.clientY - r.top) + 'px'; $('#ga-find').appendChild(d); setTimeout(() => d.remove(), 500); };
       if ($('#ga-next')) $('#ga-next').onclick = () => { clearTimeout(timer); ed.classList.remove('ga-wide'); snd('tap'); done(); };
@@ -867,7 +943,7 @@
       record(id, it, !seen.has(id));
     };
     const record = (id, it, first) => {
-      seen.add(id);
+      seen.add(id); S.found = [...seen]; mark(-1);
       snd(it.kind === 'thing' ? 'tap' : 'collect');
       render();
       if (it.kind !== 'thing' && first) fx(it.kind === 'target' ? 'unlock' : 'clue', $(`.ga-fi[data-id="${id}"]`));
@@ -876,12 +952,18 @@
       else if (it.kind === 'mush' && nM === 1 && first) say('user', `${it.msg} <br><small>버섯은 식물이 아니라 <b>균류</b>예요.</small>`);
       else if (it.kind === 'mush' && nM === 4 && first) say('user', `${it.msg} <br><small>버섯을 4종류나 찾았어요. 겉모습만으로 이름을 알기는 어렵네요.</small>`);
       else say('user', it.msg + (it.kind === 'life' && first ? ' <small>(조사 노트에 적었어요)</small>' : ''));
+      if (first && it.kind !== 'thing' && spotDone(spot)) {
+        const all = SPOTS.every((_, j) => spotDone(j));
+        say('friend', all ? '학교 마당을 다 둘러봤어! 조사 노트 완성 🎉 이제 노란 버섯을 앱으로 찍어 보자.' : `<b>${SPOTS[spot].name}</b>에서는 다 찾았어! 아래 버튼을 눌러 다음 장소로 가 보자.`, 'happy');
+        if (all) snd('win');
+        return;
+      }
       if (!seen.has('yellow') && seen.size >= 4 && !hinted) hint();
     };
     const hint = () => { hinted = true; say('friend', '아까 <b>벤치와 큰 나무</b> 쪽 낙엽 더미 옆에 뭔가 노랗게 보였는데?', 'explaining'); };
     const timer = setTimeout(() => { if ($('#ga-find') && !seen.has('yellow') && !hinted) hint(); }, 25000);
     render();
-    say('friend', '선생님이 우리 학교에 사는 생물을 찾아서 조사 노트에 적으라고 하셨어. 비 온 다음 날이라 버섯이 많을 거래! 여기저기 둘러보자.', 'happy');
+    say('friend', '선생님이 우리 학교에 사는 생물을 찾아서 조사 노트에 적으라고 하셨어. 버섯만 말고 <b>곤충, 이끼, 지렁이</b> 같은 작은 생물도 찾아보자! 막히면 🔍 힌트를 눌러 봐.', 'happy');
   }
 
   /* ---------- 5 사용자: 교내 생물 다양성 조사 ---------- */
@@ -895,7 +977,8 @@
   };
   const shareText = (r, v) => SHARE[r][v].replace('{c}', conf());
   function sUser() {
-    Object.assign(S, { shots: [], share: null, userChoice: null, ate: null, report: null, pushed: false, obs: {} });
+    const st0 = subStart(null);
+    if (st0 === null) Object.assign(S, { shots: [], share: null, userChoice: null, ate: null, report: null, pushed: false, obs: {}, found: [] });
     stage.innerHTML = `<div class="ga-scene">${who('user', '통합과학 「우리 학교 생물 다양성 조사」 시간이에요. 비 온 다음 날, 학교 마당을 둘러보며 생물을 찾아요.', 'courtyard', [['user', 560, 650, 'right', 1.8], ['friend', 740, 650, 'left', 1.8]], '장면 5 · 학교 화단')}
       <div class="ga-editor"><div id="ga-step"></div>
         <div class="ga-phone" aria-label="버섯도감 AI 화면"><div class="ga-screen" id="ga-uphone"></div></div>
@@ -977,6 +1060,7 @@
           <div class="ga-choices">${[['yes', '앱에서 오류 신고하기', `판별 결과 화면과 사진 ${nShots()}장을 보낸다`], ['no', '그냥 넘어간다', '신고해도 달라질 게 없을 것 같다']].map(o => `<button type="button" class="ee-choice ga-rp" data-v="${o[0]}" ${pressed(S.report, o[0])}><b>${o[1]}</b><small>${o[2]}</small></button>`).join('')}</div>
           ${navBtns(false, '장면 마치기 ▶', !S.report)}`;
       }
+      mark(i);
       showStep(`<section class="ee-panel ga-stack ga-tight">${stepBar(steps(), i + 1)}${body}</section>`);
       phone(i === 0 ? 'cam' : S.report === 'yes' ? 'sent' : 'result');
       if (i === 0) $$('.ga-part').forEach(b => b.onclick = () => shoot(b.dataset.p));
@@ -994,7 +1078,8 @@
         snd('tap'); step(i + 1);
       };
     };
-    findPhase(() => step(0));
+    if (st0 !== null && st0 >= 0) { if (st0 >= 1) r = appResult(); step(st0); }
+    else findPhase(() => step(0));
   }
   const USER_STEPS = ['찾기', '촬영', '결과', '단톡방', '결정', '신고'];
 
@@ -1020,11 +1105,11 @@
     }
     return `<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${lines}</svg>${tags}
       <div class="ga-center ${S.ate ? 'hurt' : ''}">${momentLabel()}</div>
-      ${ROLE_KEYS.map(k => `<div class="ga-node" style="left:${NODE[k][0]}%;top:${NODE[k][1]}%">${face(k, S.ate ? 'worried' : 'neutral')}<span>${CAST[k].role} ${S.my[k]}%</span></div>`).join('')}
+      ${ROLE_KEYS.map(k => `<div class="ga-node" style="left:${NODE[k][0]}%;top:${NODE[k][1]}%">${face(k, S.ate ? 'worried' : 'neutral')}<span>${CAST[k].role} ${S.my[k] / 10}개</span></div>`).join('')}
       <div class="ga-legend"><span><i></i>내가 나눈 책임</span>${showRec ? '<span><i class="rec"></i>기록에 남은 위험 쪽 선택</span>' : ''}${S.report === 'yes' ? '<span><i class="rep"></i>사용자 → 개발자 오류 신고</span>' : ''}</div>`;
   }
   function sResult() {
-    S.opened = false; let moved = false;
+    S.opened = false;
     const head = S.ate
       ? `${banner('nurse', [['user', 560, 600, 'down', .85], ['teacher', 700, 600, 'left']], 'short', '보건실')}<div class="ee-notice"><b>소식</b> · 학교 화단에서 딴 야생 버섯을 먹은 고등학생이 복통으로 병원에 옮겨졌어요. 다행히 회복 중이에요.</div>`
       : `${banner('courtyard', [['user', 560, 600], ['friend', 650, 610], ['teacher', 740, 600, 'left']], 'short', '학교 화단')}<div class="ee-success"><b>조사 소식</b> · 오늘 생물 다양성 조사는 무사히 끝났어요. <button type="button" class="ee-button secondary" id="ga-other" style="margin-left:8px">그날의 다른 가능성 보기</button><span id="ga-otherbox" hidden> ${appResult() === 'edible' ? '앱 말만 믿고 따 가서 먹었다면' : '만약 앱이 "식용 가능 87%"라고 답했고, 확인 없이 따 가서 먹었다면'} 같은 날 사고가 났을 수 있어요. 결과는 네 사람의 선택이 어떻게 쌓이느냐에 달려 있었어요.</span></div>`;
@@ -1034,9 +1119,9 @@
         <section class="ee-panel ga-stack">
           <span class="ga-eyebrow">장면 6 · 책임 연결선 맵</span>
           <h2>책임은 누구에게 얼마나 있을까요?</h2>
-          <p>${S.ate ? '이 사고에 대해' : appResult() === 'edible' ? '이 아슬아슬한 순간에 대해' : '만약 사고가 났다면'} 네 사람의 책임을 어떻게 나눌지 정해 보세요. 합계는 100%가 되어야 해요.</p>
-          <div class="ga-stack">${ROLE_KEYS.map(k => `<div class="ga-sl">${face(k)}<div><label for="ga-r-${k}">${CAST[k].role} · ${CAST[k].name}</label><input type="range" id="ga-r-${k}" min="0" max="100" step="5" value="${S.my[k]}"></div><span class="ga-v" id="ga-p-${k}">${S.my[k]}%</span></div>`).join('')}</div>
-          <div class="ga-row"><b class="ga-sum" id="ga-sum"></b><span class="ga-spacer"></span><button class="ee-button secondary" id="ga-even" type="button">똑같이 나누기</button></div>
+          <p>${S.ate ? '이 사고에 대해' : appResult() === 'edible' ? '이 아슬아슬한 순간에 대해' : '만약 사고가 났다면'} <b>책임 토큰 10개</b>를 네 사람에게 나눠 주세요. 먼저 <b>내 생각</b>을 정하고, 다음에 게임이 남긴 <b>기록</b>과 비교해요.</p>
+          <div class="ga-stack ga-toks">${ROLE_KEYS.map(k => `<div class="ga-tok">${face(k)}<span class="ga-tokname">${CAST[k].role}</span><button type="button" class="ga-tb" data-k="${k}" data-d="-1" aria-label="${CAST[k].role} 토큰 빼기">−</button><span class="ga-pips2" id="ga-t-${k}"></span><button type="button" class="ga-tb" data-k="${k}" data-d="1" aria-label="${CAST[k].role} 토큰 더하기">+</button><b class="ga-v" id="ga-p-${k}"></b></div>`).join('')}</div>
+          <div class="ga-row"><b class="ga-sum" id="ga-sum"></b></div>
           <h3>가장 큰 책임을 준 이유</h3>
           <div class="ga-reason">${['알고도 위험을 감수했다', '마지막에 결정했다', '결과를 바꿀 힘이 가장 컸다', '이익을 가장 많이 얻었다'].map(r => `<button type="button" class="ee-choice" aria-pressed="false">${r}</button>`).join('')}</div>
           <div class="ga-nav"><button class="ee-button" id="ga-open" type="button" disabled>기록 열어 보기</button></div>
@@ -1045,27 +1130,37 @@
       <div id="ga-records"></div></div>`;
     if ($('#ga-other')) $('#ga-other').onclick = () => { $('#ga-otherbox').hidden = false; $('#ga-other').remove(); snd('paper'); };
     const refresh = () => {
-      const sum = ROLE_KEYS.reduce((a, k) => a + S.my[k], 0);
-      $('#ga-sum').textContent = !moved ? '슬라이더를 움직여 내 생각대로 나눠 보세요' : `합계 ${sum}%` + (sum === 100 ? ' ✓' : ' (100%가 되도록 맞춰 주세요)');
-      $('#ga-sum').className = 'ga-sum ' + (moved && sum === 100 ? 'ok' : 'bad');
-      ROLE_KEYS.forEach(k => $('#ga-p-' + k).textContent = S.my[k] + '%');
+      const sum = ROLE_KEYS.reduce((a, k) => a + S.my[k], 0), left = (100 - sum) / 10;
+      $('#ga-sum').textContent = left ? `남은 토큰 ${left}개 · 모두 나눠 주세요` : '토큰 10개를 모두 나눴어요 ✓';
+      $('#ga-sum').className = 'ga-sum ' + (left ? 'bad' : 'ok');
+      ROLE_KEYS.forEach(k => { const t = S.my[k] / 10; $('#ga-p-' + k).textContent = t + '개'; $('#ga-t-' + k).innerHTML = Array.from({ length: 10 }, (_, j) => `<i class="${j < t ? 'on' : ''}"></i>`).join(''); });
+      $$('.ga-tb').forEach(b => { b.disabled = S.opened || (b.dataset.d === '1' ? left === 0 : S.my[b.dataset.k] === 0); });
       $('#ga-map').innerHTML = mapHTML(S.opened, justOpened); justOpened = false; paint($('#ga-map'));
-      $('#ga-open').disabled = !(moved && sum === 100 && S.reason);
+      $('#ga-open').disabled = !(sum === 100 && S.reason) || S.opened;
     };
-    ROLE_KEYS.forEach(k => $('#ga-r-' + k).oninput = e => { S.my[k] = +e.target.value; moved = true; refresh(); });
-    $('#ga-even').onclick = () => { ROLE_KEYS.forEach(k => { S.my[k] = 25; $('#ga-r-' + k).value = 25; }); moved = true; snd('tap'); refresh(); };
+    $$('.ga-tb').forEach(b => b.onclick = () => { S.my[b.dataset.k] += +b.dataset.d * 10; snd('tap'); mark(0); refresh(); });
     pick('.ga-reason .ee-choice', (v, b) => { S.reason = b.textContent; refresh(); });
     let justOpened = false;
     $('#ga-open').onclick = () => { S.opened = true; justOpened = true; snd('door'); refresh(); records(); };
     refresh();
+  }
+  const recShare = () => { const total = ROLE_KEYS.reduce((a, k) => a + riskCount(k), 0); return Object.fromEntries(ROLE_KEYS.map(k => [k, total ? Math.round(riskCount(k) / total * 100) : 0])); };
+  function gapNote() {
+    const mine = ROLE_KEYS.reduce((a, k) => (S.my[k] > S.my[a] ? k : a)), rs = recShare();
+    if (S.log === 'off') return `나는 <b>${CAST[mine].role}</b>에게 가장 많은 토큰(${S.my[mine] / 10}개)을 줬어요. 그런데 판별 기록이 없어서 앱이 무엇을 했는지는 비교할 수 없어요. 기록이 없으면 책임은 마지막 사람에게 몰리기 쉬워요.`;
+    const rec = ROLE_KEYS.reduce((a, k) => (rs[k] > rs[a] ? k : a));
+    if (!ROLE_KEYS.some(k => rs[k])) return '기록에 위험한 선택이 없었어요. 그렇다면 책임을 나눈 기준은 무엇이었나요?';
+    if (mine === rec) return `나는 <b>${CAST[mine].role}</b>에게 가장 많은 토큰을 줬고, 기록에서도 ${CAST[rec].role}의 위험한 선택이 가장 많았어요. 판단과 기록이 같은 방향이에요.`;
+    return `나는 <b>${CAST[mine].role}</b>에게 가장 많은 토큰(${S.my[mine] / 10}개)을 줬지만, 기록에는 <b>${CAST[rec].role}</b>의 위험한 선택이 가장 많아요(${rs[rec]}%). 결과를 직접 만든 사람과 위험을 쌓은 사람, 누구의 책임이 더 클까요?`;
   }
   function records() {
     const R = risks(), total = ROLE_KEYS.reduce((a, k) => a + riskCount(k), 0), blind = S.log === 'off';
     $('#ga-records').innerHTML = `<section class="ee-panel ga-stack">
       <span class="ga-eyebrow">게임이 남긴 기록</span><h2>네 사람의 선택</h2>
       <p>▲는 위험한 쪽, ●는 안전한 쪽을 고른 선택이에요. 맵의 붉은 선이 굵을수록 그 사람의 위험한 선택이 많았다는 뜻이에요.${total ? '' : ' 이번 탐험에서는 위험 쪽 선택이 없었어요.'}</p>
+      <div class="ee-notice ga-gap"><b>내 생각과 기록 비교</b> · ${gapNote()}</div>
       ${blind ? '<div class="ee-notice"><b>판별 기록이 없어요.</b> 개발 단계에서 기록을 저장하지 않아서, 앱이 실제로 무엇이라고 표시했는지 증명할 수 없어요. 앱 회사는 "사용자가 결과를 잘못 읽었을 수 있다"고 말하고, 책임은 마지막 사람에게 몰려요. 맵에서 사용자를 뺀 세 줄이 "기록 없음"으로 보이는 이유예요.</div>' : ''}
-      <div class="ga-recs">${ROLE_KEYS.map(k => `<div class="ga-rec">${face(k)}<div><b>${CAST[k].role} · ${CAST[k].name}</b> <span class="ga-hint">내가 준 책임 ${S.my[k]}% · 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}</span>
+      <div class="ga-recs">${ROLE_KEYS.map(k => `<div class="ga-rec">${face(k)}<div><b>${CAST[k].role} · ${CAST[k].name}</b> <span class="ga-hint">내가 준 토큰 ${S.my[k] / 10}개 · 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}</span>
         <ul>${R[k].map(([bad, b, g]) => `<li class="${bad ? 'risk' : 'safe'}">${bad ? b : g}</li>`).join('')}${k === 'developer' && S.tabOpened ? '<li class="risk">종별 정확도를 열어 보았다 (알고 있었다)</li>' : ''}</ul>${k === 'user' ? `<p class="ga-hint" style="margin:6px 0 2px">사용자로서의 실천 (책임 비율에는 넣지 않음)</p><ul class="ga-prac">${practice().map(([ok, t]) => `<li class="${ok ? 'ok' : 'no'}">${t}</li>`).join('')}</ul>` : ''}</div></div>`).join('')}</div>
       <div class="ga-nav"><button class="ee-button" id="ga-end" type="button">엔딩 보기 ▶</button></div></section>`;
     paint($('#ga-records'));
@@ -1255,8 +1350,9 @@
     });
     B.push(['note', '▲ 위험 쪽으로 기운 선택   ● 안전 쪽 선택   ◎/△ 사용자의 실천(책임 비율에는 넣지 않음)']);
     B.push(['h', '3. 책임 나누기']);
-    B.push(['body', ROLE_KEYS.map(k => `${CAST[k].role}: 내가 준 책임 ${S.my[k]}%  /  게임 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}`).join('\n')]);
+    B.push(['body', ROLE_KEYS.map(k => `${CAST[k].role}: 내가 준 토큰 ${S.my[k] / 10}개  /  게임 기록 ${blind && k !== 'user' ? '확인 불가' : (total ? Math.round(riskCount(k) / total * 100) : 0) + '%'}`).join('\n')]);
     B.push(['body', '가장 큰 책임을 준 이유: ' + (S.reason || '(선택하지 않음)')]);
+    B.push(['body', '내 생각과 기록 비교: ' + gapNote().replace(/<[^>]+>/g, '')]);
     if (blind) B.push(['note', '판별 기록을 저장하지 않아, 앱이 무엇이라고 표시했는지 증명할 수 없었다.']);
     B.push(['h', '4. 실제 사례']);
     if (c.own) B.push(['body', '직접 찾은 기사: ' + (R2.title || '(작성하지 않음)')]);
@@ -1356,7 +1452,7 @@
     E4: { t: 'E4 추적 불가', cart: ['global', 'club'], labels: {}, labelSkipped: true, tabOpened: true, launch: 'today', th: 60, log: 'off', ad: 'approve', warn: 'bottom', age: '전체', shots: ['cap'], share: 'plain', userChoice: 'eat', ate: true, report: 'no' },
     E5: { t: 'E5 너무 조심한 앱', cart: ['kr'], labels: GOOD, labelSkipped: false, launch: 'delay', th: 95, log: 'on', ad: 'revise', warn: 'top', age: '12세', shots: ['cap', 'gill'], share: 'none', userChoice: 'leave', ate: false }
   };
-  const SAMPLE = { my: { data: 20, developer: 35, deployer: 25, user: 20 }, reason: '결과를 바꿀 힘이 가장 컸다', caseId: 'kfs', refl: { who: ['개발자', '배포자'], most: '(데모) 개발자. 독버섯 인식률이 낮은 것을 알고도 출시했다.', fix: '(데모) 위험한 종의 정확도 공개 의무', me: '(데모) 마지막 사용자만의 책임이 아니라는 것을 알았다.' } };
+  const SAMPLE = { my: { data: 20, developer: 40, deployer: 20, user: 20 }, reason: '결과를 바꿀 힘이 가장 컸다', caseId: 'kfs', refl: { who: ['개발자', '배포자'], most: '(데모) 개발자. 독버섯 인식률이 낮은 것을 알고도 출시했다.', fix: '(데모) 위험한 종의 정확도 공개 의무', me: '(데모) 마지막 사용자만의 책임이 아니라는 것을 알았다.' } };
   const FIELDS = { 2: ['cart', 'labels', 'labelSkipped'], 3: ['tabOpened', 'launch', 'th', 'log'], 4: ['ad', 'warn', 'age'], 5: ['shots', 'share', 'userChoice', 'ate', 'report'], 6: ['my', 'reason'], 8: ['caseId', 'refl'] };
   let demoScene = 0;
   function demoJump(n) {
@@ -1402,5 +1498,18 @@
     if (DEMO) demoBar();
     post({ type: 'ethicity:ready', gameId: GAME_ID });
     go(0);
+    /* 하던 탐험이 있으면 바로 이어 할지 묻기 */
+    const v = !DEMO && store.get('progress', null);
+    if (v && v.player && v.scene >= 2 && v.scene <= 8) {
+      const where = { 2: '데이터 수집자', 3: '개발자', 4: '배포자', 5: '사용자', 6: '책임 연결선 맵', 7: '엔딩', 8: '사례 탐구' }[v.scene];
+      const box = document.createElement('div'); box.className = 'ga-obs ga-resume-modal'; box.setAttribute('role', 'dialog');
+      box.innerHTML = `<div class="ee-panel ga-stack"><span class="ga-eyebrow">이어서 하기</span><h2 style="margin:0">${esc(v.player.name)}님, 하던 탐험이 있어요</h2>
+        <p style="margin:0"><b>${where}</b> 장면에서 멈췄어요. 하던 곳부터 이어서 할까요?</p>
+        <p class="ga-hint" style="margin:0">학번·이름은 저장하지 않아서, PDF를 만들 때 다시 입력해요.</p>
+        <div class="ga-nav"><button class="ee-button secondary" type="button" id="ga-rnew">처음부터</button><button class="ee-button" type="button" id="ga-rgo">이어서 하기 ▶</button></div></div>`;
+      root.appendChild(box);
+      $('#ga-rgo', box).onclick = () => { box.remove(); S = Object.assign(blank(), v); snd('door'); go(S.scene, true); };
+      $('#ga-rnew', box).onclick = () => { box.remove(); snd('tap'); };
+    }
   })();
 })();
